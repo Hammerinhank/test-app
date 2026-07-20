@@ -3,32 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Déployeur</title>
+    <title>Ma Géolocalisation avec Carte</title>
+    
+    <!-- En-tête Leaflet pour la carte (CSS) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            text-align: center;
-            padding: 80px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
             margin: 0;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+            padding: 20px;
+            box-sizing: border-box;
         }
-        .badge {
+        .card {
+            text-align: center;
+            padding: 25px;
             background: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            display: inline-block;
-            border: 2px solid #c8e6c9;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 380px;
+            box-sizing: border-box;
         }
-        h1 { margin-top: 0; font-size: 32px; }
-        p { font-size: 18px; margin-bottom: 0; color: #388e3c; }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 14px;
+            color: #86868b;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            background-color: #34c759; /* Vert iOS */
+            color: white;
+            border: none;
+            border-radius: 10px;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        button:active {
+            background-color: #248a3d;
+        }
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: left;
+            background: #f5f5f7;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            word-break: break-all;
+        }
+        /* Conteneur de la carte - Hauteur obligatoire pour Leaflet */
+        #map {
+            height: 250px;
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none; /* Caché au début */
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.15);
+        }
+        .error {
+            color: #ff3b30;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
-    <div class="badge">
-        <h1>🎉 Ça marche haut la main !</h1>
-        <p>Ce code a été propulsé et mis en ligne directement depuis mon iPhone grâce au Déployeur.</p>
+
+    <div class="card">
+        <h1>Où suis-je ?</h1>
+        <p>Clique sur le bouton pour afficher la carte en direct.</p>
+        <button onclick="trouverPosition()">Ma Position Actuelle</button>
+        
+        <div id="bloc-info" class="info"></div>
+        <!-- La carte s'affichera ici -->
+        <div id="map"></div>
     </div>
+
+    <!-- Moteur de la carte Leaflet (JavaScript) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        let carte = null; // Variable pour stocker l'instance de la carte
+
+        function trouverPosition() {
+            const blocInfo = document.getElementById('bloc-info');
+            blocInfo.style.display = "block";
+            blocInfo.innerHTML = "<em>Demande d'autorisation et calcul en cours...</em>";
+
+            if (!navigator.geolocation) {
+                blocInfo.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 7000,
+                maximumAge: 0
+            };
+
+            navigator.geolocation.getCurrentPosition(succes, erreur, options);
+        }
+
+        function succes(position) {
+            const blocInfo = document.getElementById('bloc-info');
+            const mapDiv = document.getElementById('map');
+            
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const precision = position.coords.accuracy;
+
+            // 1. Affichage du texte
+            blocInfo.innerHTML = `
+                <strong>Latitude :</strong> ${lat.toFixed(6)}<br>
+                <strong>Longitude :</strong> ${lon.toFixed(6)}<br>
+                <strong>Précision :</strong> ~${Math.round(precision)} mètres
+            `;
+
+            // 2. Affichage et initialisation de la carte
+            mapDiv.style.display = "block";
+
+            // Si la carte n'existe pas encore, on la crée
+            if (carte === null) {
+                carte = L.map('map').setView([lat, lon], 16); // 16 = niveau de zoom proche
+
+                // Chargement des images de fond (tuiles OpenStreetMap)
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(carte);
+
+                // Ajout du repère visuel (Marker)
+                L.marker([lat, lon]).addTo(carte)
+                    .bindPopup('Tu es ici !')
+                    .openPopup();
+            } else {
+                // Si elle existe déjà (deuxième clic), on met juste à jour la position
+                carte.setView([lat, lon], 16);
+            }
+        }
+
+        function erreur(err) {
+            const blocInfo = document.getElementById('bloc-info');
+            document.getElementById('map').style.display = "none"; // Cache la carte en cas d'erreur
+            
+            if (err.code === err.PERMISSION_DENIED) {
+                blocInfo.innerHTML = "<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>";
+            } else {
+                blocInfo.innerHTML = "<span class='error'>Impossible d'obtenir une position précise.</span>";
+            }
+        }
+    </script>
+
 </body>
 </html>
