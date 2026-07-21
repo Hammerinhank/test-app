@@ -54,9 +54,9 @@
         .mini { width: auto; padding: 8px 10px; font-size: 13px; border-radius: 8px; }
         .mini.voir { background: #007aff; } .mini.voir:active { background: #0051d5; }
         .mini.suppr { background: #ff3b30; } .mini.suppr:active { background: #c1271d; }
-        details.sync { margin-top: 24px; text-align: left; border-top: 1px solid #e0e0e0; padding-top: 14px; }
-        details.sync summary { font-size: 15px; font-weight: 700; cursor: pointer; list-style: none; }
-        details.sync summary::-webkit-details-marker { display: none; }
+        details.sync, details.manuel { margin-top: 24px; text-align: left; border-top: 1px solid #e0e0e0; padding-top: 14px; }
+        details.sync summary, details.manuel summary { font-size: 15px; font-weight: 700; cursor: pointer; list-style: none; }
+        details.sync summary::-webkit-details-marker, details.manuel summary::-webkit-details-marker { display: none; }
         .champ { display: block; margin-top: 12px; font-size: 13px; color: #86868b; }
         .champ input {
             width: 100%; box-sizing: border-box; margin-top: 4px; padding: 11px 12px;
@@ -67,6 +67,7 @@
         /* messages multi-lignes, avec la démarche à suivre */
         .sync-statut { margin-top: 12px; font-size: 13px; font-weight: 600; min-height: 16px; white-space: pre-line; line-height: 1.5; }
         .sync-statut a { color: #007aff; text-decoration: underline; font-weight: 700; }
+        .manuel-statut { margin-top: 12px; font-size: 13px; font-weight: 600; min-height: 16px; white-space: pre-line; line-height: 1.5; }
         .mode-stockage { margin-top: 10px; font-size: 13px; font-weight: 600; color: #34c759; text-align: center; }
         .aide { font-size: 12px; color: #86868b; margin-top: 12px; line-height: 1.5; }
     </style>
@@ -81,8 +82,8 @@
 
         <div class="nav-row">
             <button class="btn-nav" onclick="allerMaPosition()">📍 Ma position</button>
-            <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
             <button class="btn-nav" onclick="voirLesDeux()">👁️ Les deux</button>
+            <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
         </div>
 
         <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
@@ -96,6 +97,21 @@
         <div id="historique"></div>
 
         <div id="mode-stockage" class="mode-stockage"></div>
+
+        <details class="manuel">
+            <summary>✍️ Saisir des coordonnées à la main</summary>
+            <label class="champ">Coordonnées (latitude, longitude)
+                <input id="coord-manuelles" type="text" autocomplete="off" inputmode="text" placeholder="48.2580226, 7.4589611">
+            </label>
+            <button class="btn-voiture" onclick="enregistrerCoordManuelles()">Enregistrer ce stationnement</button>
+            <div id="manuel-statut" class="manuel-statut"></div>
+            <div class="aide">
+                Colle ou tape les coordonnées sous la forme <code>48.2580226, 7.4589611</code>
+                (les parenthèses, points-virgules ou espaces multiples sont acceptés). Le point sert de
+                séparateur décimal. Le stationnement est ajouté à l'historique comme s'il avait été relevé
+                sur place, avec recherche automatique de l'adresse.
+            </div>
+        </details>
 
         <details class="sync">
             <summary>⚙️ Synchronisation GitHub (optionnelle, chiffrée)</summary>
@@ -458,6 +474,40 @@
                 majAffichageHistorique(); majDistance();
                 await persister();
             }, ()=>{ statut.innerHTML="<span class='error'>Impossible de récupérer la position pour la voiture.</span>"; }, OPTIONS_GEO);
+        }
+
+        // ================= Saisie manuelle des coordonnées =================
+        // Accepte : "48.2580226, 7.4589611", "(48.2580226, 7.4589611)", "48.2580226 7.4589611",
+        // "48.2580226; 7.4589611" — le point reste le séparateur décimal.
+        function analyserCoordonnees(txt){
+            if(!txt) return null;
+            const nombres = String(txt).match(/-?\d+(?:\.\d+)?/g);
+            if(!nombres || nombres.length < 2) return null;
+            const lat = parseFloat(nombres[0]), lon = parseFloat(nombres[1]);
+            if(!isFinite(lat) || !isFinite(lon)) return null;
+            if(lat < -90 || lat > 90) return { erreur:"latitude" };
+            if(lon < -180 || lon > 180) return { erreur:"longitude" };
+            return { lat, lon };
+        }
+        async function enregistrerCoordManuelles(){
+            const champ=document.getElementById('coord-manuelles');
+            const statut=document.getElementById('manuel-statut');
+            const res=analyserCoordonnees(champ.value);
+            if(!res){ statut.textContent="❌ Format non reconnu. Attendu : 48.2580226, 7.4589611"; statut.style.color='#ff3b30'; return; }
+            if(res.erreur==="latitude"){ statut.textContent="❌ Latitude hors limites (doit être entre -90 et 90)."; statut.style.color='#ff3b30'; return; }
+            if(res.erreur==="longitude"){ statut.textContent="❌ Longitude hors limites (doit être entre -180 et 180)."; statut.style.color='#ff3b30'; return; }
+            const { lat, lon } = res;
+            statut.textContent="Enregistrement…"; statut.style.color='#007aff';
+            const adresse=await recupererAdresseCourte(lat,lon);
+            const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
+            historique.push(entree); idSelection=entree.id;
+            afficherVoiture(lat,lon); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
+            const lieu=adresse?echapper(adresse):(lat.toFixed(5)+', '+lon.toFixed(5));
+            statut.innerHTML="✅ Stationnement ajouté : "+lieu; statut.style.color='#34c759';
+            champ.value='';
+            document.getElementById('statut-voiture').textContent="🚗 Stationnement saisi manuellement.";
+            majAffichageHistorique(); majDistance();
+            await persister();
         }
 
         // ================= Historique =================
