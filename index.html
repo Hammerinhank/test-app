@@ -84,6 +84,8 @@
             <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
         </div>
 
+        <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
+
         <div id="statut-voiture" class="statut"></div>
         <div id="distance" class="distance"></div>
         <div id="bloc-info" class="info"></div>
@@ -503,6 +505,22 @@
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             statut.textContent="Localisation en cours…";
             navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; }, erreur, OPTIONS_GEO);
+        }
+        // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
+        function itineraireVersVoiture(){
+            const statut=document.getElementById('statut-voiture');
+            const e=entreeCourante();
+            if(!e){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
+            const destination=e.lat+','+e.lon;
+            // Origine = ta position bleue si connue ; sinon Google Maps utilise le GPS en direct
+            let origine='';
+            if(marqueur!==null){ const p=marqueur.getLatLng(); origine=p.lat+','+p.lng; }
+            const url='https://www.google.com/maps/dir/?api=1'
+                + (origine ? '&origin='+encodeURIComponent(origine) : '')
+                + '&destination='+encodeURIComponent(destination)
+                + '&travelmode=walking';
+            window.open(url,'_blank');
+            statut.textContent="🧭 Itinéraire ouvert dans Google Maps.";
         }
 
         // ================= Adresse =================
