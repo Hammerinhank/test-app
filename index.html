@@ -10,99 +10,64 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f5f5f7;
-            color: #1d1d1f;
-            padding: 20px;
-            box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; background-color: #f5f5f7; color: #1d1d1f;
+            padding: 20px; box-sizing: border-box;
         }
         .card {
-            text-align: center;
-            padding: 25px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            width: 100%;
-            max-width: 380px;
-            box-sizing: border-box;
+            text-align: center; padding: 25px; background: white; border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 100%; max-width: 380px; box-sizing: border-box;
         }
         h1 { font-size: 24px; margin-bottom: 10px; }
         p  { font-size: 14px; color: #86868b; margin-bottom: 20px; }
         button {
-            padding: 14px 20px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            background-color: #34c759;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            width: 100%;
-            transition: background 0.2s;
+            padding: 14px 20px; font-size: 16px; font-weight: 600; cursor: pointer;
+            background-color: #34c759; color: white; border: none; border-radius: 10px;
+            width: 100%; transition: background 0.2s;
         }
         button:active { background-color: #248a3d; }
         .btn-voiture { background-color: #007aff; margin-top: 12px; }
         .btn-voiture:active { background-color: #0051d5; }
         .nav-row { display: flex; gap: 10px; margin-top: 12px; }
-        .btn-nav {
-            flex: 1; width: auto;
-            background-color: #e8e8ed; color: #1d1d1f;
-            font-size: 15px; padding: 12px 8px;
-        }
+        .btn-nav { flex: 1; width: auto; background-color: #e8e8ed; color: #1d1d1f; font-size: 15px; padding: 12px 8px; }
         .btn-nav:active { background-color: #d1d1d6; }
-        .statut {
-            margin-top: 12px; font-size: 14px; font-weight: 600;
-            color: #007aff; min-height: 18px;
-        }
-        .distance {
-            margin-top: 8px; font-size: 15px; font-weight: 600;
-            color: #1d1d1f; min-height: 18px;
-        }
+        .statut { margin-top: 12px; font-size: 14px; font-weight: 600; color: #007aff; min-height: 18px; }
+        .distance { margin-top: 8px; font-size: 15px; font-weight: 600; color: #1d1d1f; min-height: 18px; }
         .info {
-            margin-top: 20px; font-size: 14px; line-height: 1.6;
-            text-align: left; background: #f5f5f7; padding: 15px;
-            border-radius: 10px; display: none; word-break: break-word;
+            margin-top: 20px; font-size: 14px; line-height: 1.6; text-align: left;
+            background: #f5f5f7; padding: 15px; border-radius: 10px; display: none; word-break: break-word;
         }
         .adresse { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; }
-        #map {
-            height: 250px; width: 100%; border-radius: 10px;
-            margin-top: 15px; display: none;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.15);
-        }
+        #map { height: 250px; width: 100%; border-radius: 10px; margin-top: 15px; display: none; box-shadow: inset 0 0 5px rgba(0,0,0,0.15); }
         .error { color: #ff3b30; font-weight: 600; }
-        .icone-voiture {
-            font-size: 26px; line-height: 36px; text-align: center;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-        }
-        /* ---- Historique ---- */
-        .histo-titre {
-            display: none; margin-top: 22px; margin-bottom: 8px;
-            font-size: 16px; font-weight: 700; text-align: left;
-        }
+        .icone-voiture { font-size: 26px; line-height: 36px; text-align: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+        .histo-titre { display: none; margin-top: 22px; margin-bottom: 8px; font-size: 16px; font-weight: 700; text-align: left; }
         .histo-item {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 8px; text-align: left;
-            background: #f5f5f7; border-radius: 10px;
-            padding: 10px 12px; margin-bottom: 8px;
-            border: 2px solid transparent;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+            background: #f5f5f7; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; border: 2px solid transparent;
         }
         .histo-item.actif { border-color: #007aff; }
         .histo-info { display: flex; flex-direction: column; overflow: hidden; }
         .histo-date { font-size: 13px; color: #86868b; }
         .histo-lieu { font-size: 14px; font-weight: 600; }
         .histo-actions { display: flex; gap: 6px; flex-shrink: 0; }
-        .mini {
-            width: auto; padding: 8px 10px; font-size: 13px; border-radius: 8px;
+        .mini { width: auto; padding: 8px 10px; font-size: 13px; border-radius: 8px; }
+        .mini.voir { background: #007aff; } .mini.voir:active { background: #0051d5; }
+        .mini.suppr { background: #ff3b30; } .mini.suppr:active { background: #c1271d; }
+        details.sync { margin-top: 24px; text-align: left; border-top: 1px solid #e0e0e0; padding-top: 14px; }
+        details.sync summary { font-size: 15px; font-weight: 700; cursor: pointer; list-style: none; }
+        details.sync summary::-webkit-details-marker { display: none; }
+        .champ { display: block; margin-top: 12px; font-size: 13px; color: #86868b; }
+        .champ input {
+            width: 100%; box-sizing: border-box; margin-top: 4px; padding: 11px 12px;
+            font-size: 15px; border: 1px solid #d1d1d6; border-radius: 8px;
         }
-        .mini.voir { background: #007aff; }
-        .mini.voir:active { background: #0051d5; }
-        .mini.suppr { background: #ff3b30; }
-        .mini.suppr:active { background: #c1271d; }
+        .btn-gris { background: #e8e8ed; color: #1d1d1f; margin-top: 12px; }
+        .btn-gris:active { background: #d1d1d6; }
+        /* messages multi-lignes, avec la démarche à suivre */
+        .sync-statut { margin-top: 12px; font-size: 13px; font-weight: 600; min-height: 16px; white-space: pre-line; line-height: 1.5; }
+        .mode-stockage { margin-top: 10px; font-size: 13px; font-weight: 600; color: #34c759; text-align: center; }
+        .aide { font-size: 12px; color: #86868b; margin-top: 12px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -125,373 +90,424 @@
 
         <div id="histo-titre" class="histo-titre">🅿️ Historique des stationnements</div>
         <div id="historique"></div>
+
+        <div id="mode-stockage" class="mode-stockage"></div>
+
+        <details class="sync">
+            <summary>⚙️ Synchronisation GitHub (optionnelle, chiffrée)</summary>
+            <label class="champ">Dépôt (utilisateur/nom)
+                <input id="gh-repo" type="text" autocomplete="off" placeholder="hammerinhank/hammerinhank.github.io">
+            </label>
+            <label class="champ">Token GitHub (droit Contents : écriture)
+                <input id="gh-token" type="password" autocomplete="off" placeholder="ghp_…">
+            </label>
+            <label class="champ">Phrase de passe (chiffrement)
+                <input id="gh-pass" type="password" autocomplete="off" placeholder="ta phrase secrète">
+            </label>
+            <button class="btn-gris" onclick="testerToken()">Tester le token</button>
+            <button class="btn-voiture" onclick="enregistrerConfig()">Enregistrer &amp; synchroniser</button>
+            <div id="sync-statut" class="sync-statut"></div>
+            <div class="aide">
+                <strong>Stockage local toujours actif :</strong> l'historique est pérennisé dans le
+                navigateur (localStorage) et fonctionne même sans GitHub. La synchro GitHub s'ajoute
+                <em>par-dessus</em>, en redondance : token et phrase restent sur cet appareil et ne
+                sont jamais écrits dans le code ni envoyés sur GitHub ; seul l'historique
+                <em>chiffré</em> part dans <code>parkings.json</code>.
+            </div>
+        </details>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        let carte = null;
-        let marqueur = null;         // "Tu es ici"
-        let marqueurVoiture = null;  // Voiture affichée
+        // ================= Configuration par défaut =================
+        const REPO_DEFAUT = 'hammerinhank/hammerinhank.github.io';
+        const FICHIER = 'parkings.json';
+        let ghUser = 'hammerinhank', ghRepo = 'hammerinhank.github.io';
+        let branche = 'main';
 
-        let historique = [];         // [{ id, lat, lon, adresse, date }]
-        let idSelection = null;      // id de l'entrée montrée par l'icône voiture
+        function apiContenu() { return `https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${FICHIER}`; }
+        function apiRepo()    { return `https://api.github.com/repos/${ghUser}/${ghRepo}`; }
 
-        const CLE_HISTO   = 'historiqueVoiture';
-        const CLE_ANCIENNE = 'positionVoiture';  // ancienne clé (mono-position)
+        // ================= État =================
+        let carte = null, marqueur = null, marqueurVoiture = null;
+        let historique = [];
+        let idSelection = null;
+        let shaFichier = null;
+        let token = '', passphrase = '';
+
+        const CLE_CACHE   = 'historiqueVoiture';
+        const CLE_TOKEN   = 'gh_token';
+        const CLE_PASS    = 'gh_pass';
+        const CLE_REPO    = 'gh_repo';
+        const CLE_BRANCHE = 'gh_branch';
+        const CLE_ANCIENNE = 'positionVoiture';
 
         const OPTIONS_GEO = { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 };
+        const iconeVoiture = L.divIcon({ html:'🚗', className:'icone-voiture', iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-18] });
 
-        const iconeVoiture = L.divIcon({
-            html: '🚗', className: 'icone-voiture',
-            iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
-        });
+        // ================= Utilitaires =================
+        function echapper(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+        function formaterDistance(m){ return m<1000 ? Math.round(m)+" m" : (m/1000).toFixed(2).replace('.',',')+" km"; }
+        function formaterDate(iso){ return new Date(iso).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+        function b64FromBytes(b){ let s=''; b.forEach(x=>s+=String.fromCharCode(x)); return btoa(s); }
+        function bytesFromB64(b64){ const bin=atob(b64.replace(/\s/g,'')); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return a; }
 
-        // ---------- Utilitaires ----------
-        function echapper(s) {
-            const d = document.createElement('div');
-            d.textContent = s == null ? '' : String(s);
-            return d.innerHTML;
+        // ================= Chiffrement (AES-GCM) =================
+        async function deriverCle(pass, sel){
+            const mat = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+            return crypto.subtle.deriveKey({name:'PBKDF2',salt:sel,iterations:150000,hash:'SHA-256'}, mat, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+        }
+        async function chiffrer(obj, pass){
+            const sel=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+            const cle=await deriverCle(pass,sel);
+            const buf=await crypto.subtle.encrypt({name:'AES-GCM',iv}, cle, new TextEncoder().encode(JSON.stringify(obj)));
+            return { v:1, salt:b64FromBytes(sel), iv:b64FromBytes(iv), data:b64FromBytes(new Uint8Array(buf)) };
+        }
+        async function dechiffrer(paquet, pass){
+            const cle=await deriverCle(pass, bytesFromB64(paquet.salt));
+            const clair=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFromB64(paquet.iv)}, cle, bytesFromB64(paquet.data));
+            return JSON.parse(new TextDecoder().decode(clair));
         }
 
-        function formaterDistance(m) {
-            if (m < 1000) return Math.round(m) + " m";
-            return (m / 1000).toFixed(2).replace('.', ',') + " km";
-        }
-
-        function formaterDate(iso) {
-            const d = new Date(iso);
-            return d.toLocaleString('fr-FR', {
-                day: '2-digit', month: 'short',
-                hour: '2-digit', minute: '2-digit'
-            });
-        }
-
-        // ---------- Stockage ----------
-        function sauverHistorique() {
-            try {
-                localStorage.setItem(CLE_HISTO, JSON.stringify(historique));
-            } catch (e) {
-                console.warn("Sauvegarde de l'historique impossible :", e);
-            }
-        }
-
-        function chargerHistorique() {
-            try {
-                const brut = localStorage.getItem(CLE_HISTO);
-                if (brut) {
-                    historique = JSON.parse(brut) || [];
-                } else {
-                    // Migration éventuelle depuis l'ancienne clé mono-position
-                    const ancien = localStorage.getItem(CLE_ANCIENNE);
-                    if (ancien) {
-                        const v = JSON.parse(ancien);
-                        historique = [{
-                            id: Date.now(), lat: v.lat, lon: v.lon,
-                            adresse: null, date: new Date().toISOString()
-                        }];
-                        sauverHistorique();
+        // ================= Messages d'erreur précis =================
+        function detailStatut(res, corps){
+            const c = corps ? " – « " + corps + " »" : "";
+            switch(res.status){
+                case 401: return "❌ Token refusé (401, non authentifié)." + c +
+                    "\n→ Le token est invalide, expiré ou révoqué. Régénère-le : GitHub → Settings → Developer settings → Personal access tokens, puis recolle-le et clique « Tester le token ».";
+                case 403:
+                    if (res.headers.get('X-RateLimit-Remaining') === '0'){
+                        const r = res.headers.get('X-RateLimit-Reset');
+                        const h = r ? new Date(r*1000).toLocaleTimeString('fr-FR') : "un moment";
+                        return "❌ Limite d'appels GitHub atteinte (403)." +
+                            "\n→ Attends jusqu'à " + h + " puis réessaie. Rien n'est perdu : l'historique reste enregistré en local.";
                     }
+                    return "❌ Accès interdit (403)." + c +
+                        "\n→ Le token est valide mais n'a pas le droit d'écrire sur " + ghUser + "/" + ghRepo +
+                        ". Fine-grained : accorde « Contents : Read and write » ET coche ce dépôt dans « Repository access ». Classic : coche le scope « repo ».";
+                case 404: return "❌ Dépôt introuvable (404)." + c +
+                    "\n→ Vérifie le champ Dépôt (« " + ghUser + "/" + ghRepo + " »). Avec un token fine-grained, ce dépôt précis doit être coché dans « Repository access » du token.";
+                case 409: return "⚠️ Conflit de version (409) : le fichier a changé entre-temps." +
+                    "\n→ Réessaie ; l'app récupère automatiquement la dernière version avant d'écrire.";
+                case 422: return "❌ Requête rejetée par GitHub (422)." + c +
+                    "\n→ En général un identifiant de fichier (sha) périmé. Réessaie une fois ; si ça persiste, recharge la page.";
+                default:  return "❌ Erreur GitHub " + res.status + c + "\n→ Réessaie plus tard ; l'historique local reste actif.";
+            }
+        }
+        async function erreurHttp(res){
+            let corps=''; try { const j=await res.json(); corps = j && j.message ? j.message : ''; } catch(_){}
+            const e = new Error(detailStatut(res, corps)); e.estGitHub = true; return e;
+        }
+        function messageErreur(e){
+            if (e && e.estGitHub) return e.message;
+            if (e && e.name === 'TypeError')
+                return "❌ Impossible de joindre GitHub (problème réseau)." +
+                    "\n→ Vérifie ta connexion internet. Si tu es hors ligne, aucun souci : l'historique reste enregistré en local et sera synchronisé au prochain accès.";
+            if (e && (e.name === 'OperationError' || /decrypt|déchiffr/i.test(e.message || '')))
+                return "❌ Déchiffrement impossible : la phrase de passe ne correspond pas au contenu de parkings.json." +
+                    "\n→ Retape exactement la phrase utilisée au tout premier enregistrement. Si tu l'as perdue, supprime parkings.json sur GitHub pour repartir de zéro (l'historique local, lui, est conservé).";
+            if (e && /Dépôt invalide/.test(e.message || '')) return e.message;
+            return "❌ Erreur inattendue : " + (e && e.message ? e.message : e);
+        }
+
+        // ================= Stockage local (mode autonome) =================
+        function sauverCacheLocal(){ try { localStorage.setItem(CLE_CACHE, JSON.stringify(historique)); } catch(e){} }
+        function chargerCacheLocal(){
+            try {
+                const brut = localStorage.getItem(CLE_CACHE);
+                if (brut) { historique = JSON.parse(brut) || []; return; }
+                const ancien = localStorage.getItem(CLE_ANCIENNE);
+                if (ancien){ const v=JSON.parse(ancien); historique=[{id:Date.now(),lat:v.lat,lon:v.lon,adresse:null,date:new Date().toISOString()}]; sauverCacheLocal(); }
+            } catch(e){ historique = []; }
+        }
+
+        // Fusion sans perte : union par id (le local n'est jamais écrasé par GitHub, ni l'inverse)
+        function fusionner(a, b){
+            const map = new Map();
+            [...a, ...b].forEach(e => map.set(e.id, e));
+            return [...map.values()].sort((x,y)=> new Date(x.date) - new Date(y.date));
+        }
+
+        // ================= GitHub =================
+        function enTetes(){ return { 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' }; }
+        function configComplete(){ return token && passphrase; }
+
+        async function majBrancheDepuisRepo(tk){
+            const res = await fetch(apiRepo(), { headers:{ 'Authorization':'Bearer '+tk, 'Accept':'application/vnd.github+json' } });
+            if (!res.ok) throw await erreurHttp(res);
+            const data = await res.json();
+            if (data.default_branch){ branche = data.default_branch; try{ localStorage.setItem(CLE_BRANCHE, branche); }catch(e){} }
+            return data;
+        }
+        async function getFichierDistant(){
+            const res = await fetch(apiContenu()+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+            if (res.status === 404) return null;
+            if (!res.ok) throw await erreurHttp(res);
+            const data = await res.json();
+            return { texte: new TextDecoder().decode(bytesFromB64(data.content)), sha: data.sha };
+        }
+        async function chargerDepuisGitHub(){
+            const f = await getFichierDistant();
+            if (!f){ shaFichier=null; return null; }
+            shaFichier = f.sha;
+            return await dechiffrer(JSON.parse(f.texte), passphrase);   // lève OperationError si mauvaise phrase
+        }
+        async function ecrireVersGitHub(){
+            const paquet = await chiffrer(historique, passphrase);
+            const contenu = b64FromBytes(new TextEncoder().encode(JSON.stringify(paquet)));
+            const corps = { message:'Mise à jour parkings', content: contenu, branch: branche };
+            if (shaFichier) corps.sha = shaFichier;
+            let res = await fetch(apiContenu(), { method:'PUT', headers: enTetes(), body: JSON.stringify(corps) });
+            if (res.status === 409 || res.status === 422){
+                const actuel = await getFichierDistant();
+                shaFichier = actuel ? actuel.sha : null;
+                if (shaFichier) corps.sha = shaFichier; else delete corps.sha;
+                res = await fetch(apiContenu(), { method:'PUT', headers: enTetes(), body: JSON.stringify(corps) });
+            }
+            if (!res.ok) throw await erreurHttp(res);
+            shaFichier = (await res.json()).content.sha;
+        }
+
+        // Sauvegarde à chaque changement : LOCAL d'abord (toujours), puis GitHub si configuré
+        async function persister(){
+            sauverCacheLocal();                       // mode local : garanti
+            if (!configComplete()){ majMode(); return; }
+            try { await ecrireVersGitHub(); majSync("✅ Enregistré en local ET synchronisé sur GitHub.", '#34c759'); }
+            catch(e){ majSync("Enregistré en local. Mais GitHub a échoué :\n\n" + messageErreur(e), '#ff3b30'); }
+            majMode();
+        }
+
+        function majSync(txt, couleur){ const el=document.getElementById('sync-statut'); el.textContent=txt; el.style.color=couleur||'#007aff'; }
+        function majMode(){
+            const el = document.getElementById('mode-stockage');
+            if (configComplete()){ el.textContent = "Stockage : local ✓  +  GitHub ✓"; el.style.color = '#34c759'; }
+            else { el.textContent = "Stockage : local ✓  (GitHub non configuré)"; el.style.color = '#86868b'; }
+        }
+
+        // ================= Config =================
+        function parseRepo(txt){
+            const m = (txt || '').trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').split('/');
+            if (m.length < 2 || !m[0] || !m[1]){ const e=new Error("❌ Dépôt invalide.\n→ Écris-le sous la forme « utilisateur/nom-du-depot », par ex. hammerinhank/hammerinhank.github.io."); throw e; }
+            return { user:m[0], repo:m[1] };
+        }
+        function chargerConfigLocale(){
+            try {
+                token = localStorage.getItem(CLE_TOKEN) || '';
+                passphrase = localStorage.getItem(CLE_PASS) || '';
+                branche = localStorage.getItem(CLE_BRANCHE) || 'main';
+                const repo = localStorage.getItem(CLE_REPO) || REPO_DEFAUT;
+                const p = parseRepo(repo); ghUser = p.user; ghRepo = p.repo;
+                document.getElementById('gh-repo').value = repo;
+            } catch(e){ document.getElementById('gh-repo').value = REPO_DEFAUT; }
+            document.getElementById('gh-token').value = token;
+            document.getElementById('gh-pass').value = passphrase;
+        }
+
+        async function testerToken(){
+            const tk = document.getElementById('gh-token').value.trim();
+            try { const p = parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; }
+            catch(e){ majSync(messageErreur(e), '#ff3b30'); return; }
+            if (!tk){ majSync("❌ Renseigne d'abord le token.\n→ Colle un Personal Access Token GitHub dans le champ ci-dessus.", '#ff3b30'); return; }
+            majSync("Vérification en cours…");
+            try {
+                const data = await majBrancheDepuisRepo(tk);
+                if (data.permissions && data.permissions.push)
+                    majSync("✅ Token OK : accès en écriture confirmé sur " + ghUser + "/" + ghRepo + " (branche « " + branche + " »).", '#34c759');
+                else
+                    majSync("⚠️ Token valide mais SANS droit d'écriture sur ce dépôt.\n→ Édite le token dans GitHub et accorde « Contents : Read and write » (fine-grained) ou le scope « repo » (classic).", '#ff3b30');
+            } catch(e){ majSync(messageErreur(e), '#ff3b30'); }
+        }
+
+        async function enregistrerConfig(){
+            try { const p = parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; localStorage.setItem(CLE_REPO, ghUser+'/'+ghRepo); }
+            catch(e){ majSync(messageErreur(e), '#ff3b30'); return; }
+            token = document.getElementById('gh-token').value.trim();
+            passphrase = document.getElementById('gh-pass').value;
+            if (!token || !passphrase){ majSync("❌ Token ET phrase de passe sont requis pour la synchro.\n→ Remplis les deux champs, ou laisse-les vides pour rester en stockage local seul.", '#ff3b30'); return; }
+            try { localStorage.setItem(CLE_TOKEN, token); localStorage.setItem(CLE_PASS, passphrase); } catch(e){}
+            majSync("Synchronisation en cours…");
+            try {
+                await majBrancheDepuisRepo(token);
+                const local = historique.slice();
+                const distant = await chargerDepuisGitHub();
+                if (distant){
+                    historique = fusionner(local, distant);
+                    sauverCacheLocal();
+                    const idsDistant = new Set(distant.map(e=>e.id));
+                    if (historique.some(e=>!idsDistant.has(e.id))) await ecrireVersGitHub();  // pousse ce que le distant n'a pas
+                } else if (local.length){
+                    await ecrireVersGitHub();   // premier envoi : on initialise parkings.json
                 }
-            } catch (e) {
-                historique = [];
-            }
+                majSync("✅ Synchronisé. Historique fusionné (local + GitHub), rien n'a été perdu.", '#34c759');
+                idSelection = null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
+            } catch(e){ majSync("Stockage local conservé. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30'); }
+            majMode();
         }
 
-        // ---------- Carte ----------
-        function assurerCarte(lat, lon, zoom) {
-            const mapDiv = document.getElementById('map');
-            mapDiv.style.display = "block";
-            if (carte === null) {
-                carte = L.map('map').setView([lat, lon], zoom || 16);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap'
-                }).addTo(carte);
+        // ================= Carte =================
+        function assurerCarte(lat, lon, zoom){
+            const mapDiv=document.getElementById('map'); mapDiv.style.display="block";
+            if (carte===null){
+                carte=L.map('map').setView([lat,lon],zoom||16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(carte);
             }
-            setTimeout(() => carte.invalidateSize(), 100);
+            setTimeout(()=>carte.invalidateSize(),100);
         }
 
-        // ---------- Ma position ----------
-        function trouverPosition() {
-            const blocInfo = document.getElementById('bloc-info');
-            blocInfo.style.display = "block";
-            blocInfo.innerHTML = "<em>Demande d'autorisation et calcul en cours...</em>";
-            if (!navigator.geolocation) {
-                blocInfo.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
-                return;
-            }
+        // ================= Ma position =================
+        function trouverPosition(){
+            const b=document.getElementById('bloc-info'); b.style.display="block"; b.innerHTML="<em>Demande d'autorisation et calcul en cours...</em>";
+            if(!navigator.geolocation){ b.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             navigator.geolocation.getCurrentPosition(succes, erreur, OPTIONS_GEO);
         }
-
-        function succes(position) {
-            const blocInfo = document.getElementById('bloc-info');
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            const precision = position.coords.accuracy;
-
-            blocInfo.style.display = "block";
-            blocInfo.innerHTML = `
-                <strong>Latitude :</strong> ${lat.toFixed(6)}<br>
-                <strong>Longitude :</strong> ${lon.toFixed(6)}<br>
-                <strong>Précision :</strong> ~${Math.round(precision)} mètres
-                <div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>
-            `;
-
-            assurerCarte(lat, lon, 16);
-            carte.setView([lat, lon], 16);
-
-            if (marqueur === null) {
-                marqueur = L.marker([lat, lon]).addTo(carte);
-            } else {
-                marqueur.setLatLng([lat, lon]);
-            }
+        function succes(position){
+            const b=document.getElementById('bloc-info');
+            const lat=position.coords.latitude, lon=position.coords.longitude, precision=position.coords.accuracy;
+            b.style.display="block";
+            b.innerHTML=`<strong>Latitude :</strong> ${lat.toFixed(6)}<br><strong>Longitude :</strong> ${lon.toFixed(6)}<br><strong>Précision :</strong> ~${Math.round(precision)} mètres<div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>`;
+            assurerCarte(lat,lon,16); carte.setView([lat,lon],16);
+            if(marqueur===null) marqueur=L.marker([lat,lon]).addTo(carte); else marqueur.setLatLng([lat,lon]);
             marqueur.bindPopup('Tu es ici !').openPopup();
-
-            trouverAdresse(lat, lon);
-            majDistance();
+            trouverAdresse(lat,lon); majDistance();
         }
 
-        // ---------- Voiture : entrée courante / affichage ----------
-        function entreeCourante() {
-            if (!historique.length) return null;
-            if (idSelection != null) {
-                const e = historique.find(x => x.id === idSelection);
-                if (e) return e;
-            }
-            return historique[historique.length - 1]; // la plus récente
+        // ================= Voiture =================
+        function entreeCourante(){
+            if(!historique.length) return null;
+            if(idSelection!=null){ const e=historique.find(x=>x.id===idSelection); if(e) return e; }
+            return historique[historique.length-1];
         }
-
-        function afficherVoiture(lat, lon) {
-            assurerCarte(lat, lon, 16);
-            if (marqueurVoiture === null) {
-                marqueurVoiture = L.marker([lat, lon], { icon: iconeVoiture }).addTo(carte);
-            } else {
-                marqueurVoiture.setLatLng([lat, lon]);
-            }
+        function afficherVoiture(lat,lon){
+            assurerCarte(lat,lon,16);
+            if(marqueurVoiture===null) marqueurVoiture=L.marker([lat,lon],{icon:iconeVoiture}).addTo(carte); else marqueurVoiture.setLatLng([lat,lon]);
         }
-
-        function popupVoiture(e) {
-            const lieu = e.adresse ? echapper(e.adresse)
-                                   : (e.lat.toFixed(5) + ', ' + e.lon.toFixed(5));
-            return `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`;
-        }
-
-        // Sélectionne une entrée : déplace l'icône voiture dessus + recentre
-        function selectionnerEntree(id) {
-            idSelection = id;
-            const e = entreeCourante();
-            if (!e) return;
-            afficherVoiture(e.lat, e.lon);
-            carte.setView([e.lat, e.lon], 17);
+        function popupVoiture(e){ const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5)); return `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`; }
+        function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } }
+        function selectionnerEntree(id){
+            idSelection=id; const e=entreeCourante(); if(!e) return;
+            afficherVoiture(e.lat,e.lon); carte.setView([e.lat,e.lon],17);
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
-            majAffichageHistorique();
-            majDistance();
+            majAffichageHistorique(); majDistance();
         }
 
-        // ---------- Enregistrer un stationnement ----------
-        function memoriserVoiture() {
-            const statut = document.getElementById('statut-voiture');
-            if (!navigator.geolocation) {
-                statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
-                return;
-            }
-            statut.textContent = "Enregistrement de la position de la voiture…";
-
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-
-                const adresse = await recupererAdresseCourte(lat, lon);
-
-                const entree = {
-                    id: Date.now(), lat, lon, adresse,
-                    date: new Date().toISOString()
-                };
-                historique.push(entree);
-                sauverHistorique();
-
-                idSelection = entree.id;
-                afficherVoiture(lat, lon);
-                carte.setView([lat, lon], 16);
-                marqueurVoiture.bindPopup(popupVoiture(entree));
-
-                statut.textContent = "🚗 Stationnement enregistré !";
-                majAffichageHistorique();
-                majDistance();
-            }, () => {
-                statut.innerHTML = "<span class='error'>Impossible de récupérer la position pour la voiture.</span>";
-            }, OPTIONS_GEO);
+        function memoriserVoiture(){
+            const statut=document.getElementById('statut-voiture');
+            if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
+            statut.textContent="Enregistrement de la position de la voiture…";
+            navigator.geolocation.getCurrentPosition(async (position)=>{
+                const lat=position.coords.latitude, lon=position.coords.longitude;
+                const adresse=await recupererAdresseCourte(lat,lon);
+                const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
+                historique.push(entree); idSelection=entree.id;
+                afficherVoiture(lat,lon); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
+                statut.textContent="🚗 Stationnement enregistré !";
+                majAffichageHistorique(); majDistance();
+                await persister();
+            }, ()=>{ statut.innerHTML="<span class='error'>Impossible de récupérer la position pour la voiture.</span>"; }, OPTIONS_GEO);
         }
 
-        // ---------- Historique : affichage + suppression ----------
-        function majAffichageHistorique() {
-            const bloc = document.getElementById('historique');
-            const titre = document.getElementById('histo-titre');
-
-            if (!historique.length) {
-                bloc.innerHTML = '';
-                titre.style.display = 'none';
-                return;
-            }
-            titre.style.display = 'block';
-
-            const courante = entreeCourante();
-            const idCourant = courante ? courante.id : null;
-
-            // Du plus récent au plus ancien
-            bloc.innerHTML = [...historique].reverse().map(e => {
-                const lieu = e.adresse ? echapper(e.adresse)
-                                       : (e.lat.toFixed(5) + ', ' + e.lon.toFixed(5));
-                const actif = (e.id === idCourant) ? ' actif' : '';
-                return `
-                    <div class="histo-item${actif}">
-                        <div class="histo-info">
-                            <span class="histo-date">${echapper(formaterDate(e.date))}</span>
-                            <span class="histo-lieu">${lieu}</span>
-                        </div>
-                        <div class="histo-actions">
-                            <button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button>
-                            <button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button>
-                        </div>
-                    </div>`;
+        // ================= Historique =================
+        function majAffichageHistorique(){
+            const bloc=document.getElementById('historique'), titre=document.getElementById('histo-titre');
+            if(!historique.length){ bloc.innerHTML=''; titre.style.display='none'; return; }
+            titre.style.display='block';
+            const courante=entreeCourante(), idCourant=courante?courante.id:null;
+            bloc.innerHTML=[...historique].reverse().map(e=>{
+                const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
+                const actif=(e.id===idCourant)?' actif':'';
+                return `<div class="histo-item${actif}"><div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div><div class="histo-actions"><button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>`;
             }).join('');
         }
-
-        function supprimerEntree(id) {
-            const e = historique.find(x => x.id === id);
-            const lieu = e && e.adresse ? e.adresse : "cette entrée";
-            if (!confirm("Supprimer « " + lieu + " » de l'historique ?")) return;
-
-            historique = historique.filter(x => x.id !== id);
-            sauverHistorique();
-
-            if (idSelection === id) idSelection = null;
-
-            const courante = entreeCourante();
-            if (courante) {
-                afficherVoiture(courante.lat, courante.lon);
-                if (marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante));
-            } else if (marqueurVoiture) {
-                carte.removeLayer(marqueurVoiture);
-                marqueurVoiture = null;
-            }
-
-            majAffichageHistorique();
-            majDistance();
+        async function supprimerEntree(id){
+            const e=historique.find(x=>x.id===id);
+            const lieu=e&&e.adresse?e.adresse:"cette entrée";
+            if(!confirm("Supprimer « "+lieu+" » de l'historique ?")) return;
+            historique=historique.filter(x=>x.id!==id);
+            if(idSelection===id) idSelection=null;
+            const courante=entreeCourante();
+            if(courante){ afficherVoiture(courante.lat,courante.lon); if(marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante)); }
+            else if(marqueurVoiture){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
+            majAffichageHistorique(); majDistance();
+            await persister();
         }
 
-        // ---------- Distance à vol d'oiseau ----------
-        function majDistance() {
-            const blocDist = document.getElementById('distance');
-            const e = entreeCourante();
-            if (marqueur === null || !e) { blocDist.textContent = ""; return; }
-            const p = marqueur.getLatLng();
-            const metres = L.latLng(p.lat, p.lng).distanceTo(L.latLng(e.lat, e.lon));
-            blocDist.textContent = "📏 Voiture à " + formaterDistance(metres) + " à vol d'oiseau";
+        // ================= Distance =================
+        function majDistance(){
+            const blocDist=document.getElementById('distance'), e=entreeCourante();
+            if(marqueur===null||!e){ blocDist.textContent=""; return; }
+            const p=marqueur.getLatLng();
+            blocDist.textContent="📏 Voiture à "+formaterDistance(L.latLng(p.lat,p.lng).distanceTo(L.latLng(e.lat,e.lon)))+" à vol d'oiseau";
         }
 
-        // ---------- Navigation ----------
-        function allerVoiture() {
-            const statut = document.getElementById('statut-voiture');
-            if (!historique.length) {
-                statut.innerHTML = "<span class='error'>Aucun stationnement enregistré pour l'instant.</span>";
-                return;
-            }
-            idSelection = null; // => la plus récente
-            selectionnerEntree(historique[historique.length - 1].id);
-            statut.textContent = "🚗 Direction ta voiture.";
+        // ================= Navigation =================
+        function allerVoiture(){
+            const statut=document.getElementById('statut-voiture');
+            if(!historique.length){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
+            idSelection=null; selectionnerEntree(historique[historique.length-1].id);
+            statut.textContent="🚗 Direction ta voiture.";
+        }
+        function allerMaPosition(){
+            const statut=document.getElementById('statut-voiture');
+            if(marqueur!==null){ const p=marqueur.getLatLng(); carte.setView([p.lat,p.lng],17); marqueur.openPopup(); statut.textContent="📍 Recentré sur ta position."; majDistance(); return; }
+            if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
+            statut.textContent="Localisation en cours…";
+            navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; }, erreur, OPTIONS_GEO);
         }
 
-        function allerMaPosition() {
-            const statut = document.getElementById('statut-voiture');
-            if (marqueur !== null) {
-                const p = marqueur.getLatLng();
-                carte.setView([p.lat, p.lng], 17);
-                marqueur.openPopup();
-                statut.textContent = "📍 Recentré sur ta position.";
-                majDistance();
-                return;
-            }
-            if (!navigator.geolocation) {
-                statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
-                return;
-            }
-            statut.textContent = "Localisation en cours…";
-            navigator.geolocation.getCurrentPosition((position) => {
-                succes(position);
-                statut.textContent = "";
-            }, erreur, OPTIONS_GEO);
+        // ================= Adresse =================
+        async function recupererAdresseCourte(lat,lon){
+            try{
+                const url=`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
+                const r=await fetch(url); if(!r.ok) throw 0;
+                const a=(await r.json()).address||{};
+                const rue=[a.house_number,a.road||a.pedestrian||a.footway].filter(Boolean).join(' ');
+                const ville=a.city||a.town||a.village||a.municipality||'';
+                return [rue,ville].filter(Boolean).join(', ')||null;
+            }catch(e){ return null; }
+        }
+        async function trouverAdresse(lat,lon){
+            const bloc=document.getElementById('bloc-adresse'); if(!bloc) return;
+            const url=`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
+            try{
+                const r=await fetch(url); if(!r.ok) throw new Error("Réponse invalide");
+                const a=(await r.json()).address||{};
+                const ligneRue=[a.house_number||'',a.road||a.pedestrian||a.footway||''].filter(Boolean).join(' ');
+                const ligneVille=[a.postcode||'',a.city||a.town||a.village||a.municipality||''].filter(Boolean).join(' ');
+                bloc.innerHTML=`<strong>Adresse :</strong><br>${echapper(ligneRue)||'—'}<br>${echapper(ligneVille)||''}<br>${echapper(a.country||'')||''}`;
+            }catch(e){ bloc.innerHTML="<span class='error'>Adresse introuvable pour le moment.</span>"; }
         }
 
-        // ---------- Adresse (reverse geocoding) ----------
-        async function recupererAdresseCourte(lat, lon) {
-            try {
-                const url = `https://nominatim.openstreetmap.org/reverse?format=json`
-                          + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
-                const r = await fetch(url);
-                if (!r.ok) throw new Error("Réponse invalide");
-                const data = await r.json();
-                const a = data.address || {};
-                const rue = [a.house_number, a.road || a.pedestrian || a.footway]
-                            .filter(Boolean).join(' ');
-                const ville = a.city || a.town || a.village || a.municipality || '';
-                return [rue, ville].filter(Boolean).join(', ') || null;
-            } catch (e) {
-                return null;
-            }
+        function erreur(err){
+            const b=document.getElementById('bloc-info'); document.getElementById('map').style.display="none"; b.style.display="block";
+            b.innerHTML=(err.code===err.PERMISSION_DENIED)?"<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>":"<span class='error'>Impossible d'obtenir une position précise.</span>";
         }
 
-        async function trouverAdresse(lat, lon) {
-            const blocAdresse = document.getElementById('bloc-adresse');
-            if (!blocAdresse) return;
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json`
-                      + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
-            try {
-                const reponse = await fetch(url);
-                if (!reponse.ok) throw new Error("Réponse invalide");
-                const data = await reponse.json();
-                const a = data.address || {};
-                const numero = a.house_number || '';
-                const rue    = a.road || a.pedestrian || a.footway || '';
-                const cp     = a.postcode || '';
-                const ville  = a.city || a.town || a.village || a.municipality || '';
-                const pays   = a.country || '';
-                const ligneRue = [numero, rue].filter(Boolean).join(' ');
-                const ligneVille = [cp, ville].filter(Boolean).join(' ');
-                blocAdresse.innerHTML = `
-                    <strong>Adresse :</strong><br>
-                    ${echapper(ligneRue) || '—'}<br>
-                    ${echapper(ligneVille) || ''}<br>
-                    ${echapper(pays) || ''}
-                `;
-            } catch (e) {
-                blocAdresse.innerHTML =
-                    "<span class='error'>Adresse introuvable pour le moment.</span>";
-            }
-        }
+        // ================= Démarrage =================
+        window.addEventListener('load', async ()=>{
+            chargerConfigLocale();
+            chargerCacheLocal();                 // le mode local s'affiche immédiatement
+            majAffichageHistorique(); rafraichirVoiture(); majMode();
 
-        function erreur(err) {
-            const blocInfo = document.getElementById('bloc-info');
-            document.getElementById('map').style.display = "none";
-            blocInfo.style.display = "block";
-            if (err.code === err.PERMISSION_DENIED) {
-                blocInfo.innerHTML = "<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>";
-            } else {
-                blocInfo.innerHTML = "<span class='error'>Impossible d'obtenir une position précise.</span>";
-            }
-        }
-
-        // ---------- Au lancement ----------
-        window.addEventListener('load', () => {
-            chargerHistorique();
-            majAffichageHistorique();
-            const e = entreeCourante();
-            if (e) {
-                const statut = document.getElementById('statut-voiture');
-                statut.textContent = "🚗 Dernier stationnement mémorisé.";
-                afficherVoiture(e.lat, e.lon);
-                carte.setView([e.lat, e.lon], 16);
-                marqueurVoiture.bindPopup(popupVoiture(e));
+            if(configComplete()){
+                majSync("Synchronisation en cours…");
+                try{
+                    const local = historique.slice();
+                    const distant = await chargerDepuisGitHub();
+                    if(distant){
+                        historique = fusionner(local, distant);
+                        sauverCacheLocal();
+                        const idsDistant = new Set(distant.map(e=>e.id));
+                        if(historique.some(e=>!idsDistant.has(e.id))) await ecrireVersGitHub();
+                    } else if(local.length){
+                        await ecrireVersGitHub();
+                    }
+                    majSync("✅ Synchronisé (local + GitHub).", '#34c759');
+                    idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
+                }catch(e){
+                    majSync("Le stockage local reste actif. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30');
+                }
+                majMode();
             }
         });
     </script>
