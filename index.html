@@ -64,6 +64,23 @@
         .btn-voiture:active {
             background-color: #0051d5;
         }
+        /* Rangée des deux boutons de navigation */
+        .nav-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .btn-nav {
+            flex: 1;
+            width: auto;
+            background-color: #e8e8ed;
+            color: #1d1d1f;
+            font-size: 15px;
+            padding: 12px 8px;
+        }
+        .btn-nav:active {
+            background-color: #d1d1d6;
+        }
         .statut {
             margin-top: 12px;
             font-size: 14px;
@@ -116,6 +133,12 @@
         <p>Clique sur le bouton pour afficher la carte en direct.</p>
         <button onclick="trouverPosition()">Ma Position Actuelle</button>
         <button class="btn-voiture" onclick="memoriserVoiture()">🚗 Je suis garé ici</button>
+
+        <!-- Boutons de navigation sur la carte -->
+        <div class="nav-row">
+            <button class="btn-nav" onclick="allerMaPosition()">📍 Ma position</button>
+            <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
+        </div>
 
         <div id="statut-voiture" class="statut"></div>
         <div id="bloc-info" class="info"></div>
@@ -186,6 +209,7 @@
             const precision = position.coords.accuracy;
 
             // 1. Affichage des coordonnées + zone d'adresse (en attente)
+            blocInfo.style.display = "block";
             blocInfo.innerHTML = `
                 <strong>Latitude :</strong> ${lat.toFixed(6)}<br>
                 <strong>Longitude :</strong> ${lon.toFixed(6)}<br>
@@ -263,6 +287,48 @@
             }
         }
 
+        // ---------- Boutons de navigation ----------
+        // Recentrer sur ma voiture
+        function allerVoiture() {
+            const statut = document.getElementById('statut-voiture');
+            const v = chargerVoiture();
+
+            if (!v) {
+                statut.innerHTML = "<span class='error'>Aucune voiture enregistrée pour l'instant.</span>";
+                return;
+            }
+
+            afficherVoiture(v.lat, v.lon);          // s'assure que l'icône est là
+            carte.setView([v.lat, v.lon], 17);
+            marqueurVoiture.openPopup();
+            statut.textContent = "🚗 Direction ta voiture.";
+        }
+
+        // Recentrer sur ma position
+        function allerMaPosition() {
+            const statut = document.getElementById('statut-voiture');
+
+            // Si on a déjà une position relevée, on recentre dessus immédiatement
+            if (marqueur !== null) {
+                const p = marqueur.getLatLng();
+                carte.setView([p.lat, p.lng], 17);
+                marqueur.openPopup();
+                statut.textContent = "📍 Recentré sur ta position.";
+                return;
+            }
+
+            // Sinon, on relève la position en direct (réutilise "Ma Position Actuelle")
+            if (!navigator.geolocation) {
+                statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
+                return;
+            }
+            statut.textContent = "Localisation en cours…";
+            navigator.geolocation.getCurrentPosition((position) => {
+                succes(position);
+                statut.textContent = "";
+            }, erreur, OPTIONS_GEO);
+        }
+
         // ---------- Adresse (reverse geocoding) ----------
         async function trouverAdresse(lat, lon) {
             const blocAdresse = document.getElementById('bloc-adresse');
@@ -302,6 +368,7 @@
         function erreur(err) {
             const blocInfo = document.getElementById('bloc-info');
             document.getElementById('map').style.display = "none";
+            blocInfo.style.display = "block";
 
             if (err.code === err.PERMISSION_DENIED) {
                 blocInfo.innerHTML = "<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>";
