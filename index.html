@@ -103,7 +103,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        let carte = null; // Variable pour stocker l'instance de la carte
+        let carte = null;     // Instance de la carte
+        let marqueur = null;  // Le pointeur, gardé pour pouvoir le déplacer
 
         function trouverPosition() {
             const blocInfo = document.getElementById('bloc-info');
@@ -144,18 +145,26 @@
             mapDiv.style.display = "block";
 
             if (carte === null) {
+                // Première fois : on crée la carte ET le marqueur
                 carte = L.map('map').setView([lat, lon], 16);
 
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap'
                 }).addTo(carte);
 
-                L.marker([lat, lon]).addTo(carte)
-                    .bindPopup('Tu es ici !')
-                    .openPopup();
+                marqueur = L.marker([lat, lon]).addTo(carte);
             } else {
+                // Fois suivantes : on recentre la carte ET on déplace le marqueur
                 carte.setView([lat, lon], 16);
+                marqueur.setLatLng([lat, lon]);
             }
+
+            // Le popup "Tu es ici !" est (ré)ouvert à chaque relevé
+            marqueur.bindPopup('Tu es ici !').openPopup();
+
+            // La div #map vient de passer de "none" à "block" : on force Leaflet
+            // à recalculer sa taille, sinon tuiles grises ou centrage décalé.
+            setTimeout(() => carte.invalidateSize(), 100);
 
             // 3. Recherche de l'adresse (reverse geocoding via Nominatim)
             trouverAdresse(lat, lon);
