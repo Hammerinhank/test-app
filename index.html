@@ -56,6 +56,21 @@
         button:active {
             background-color: #248a3d;
         }
+        /* Bouton "Je suis garé ici" */
+        .btn-voiture {
+            background-color: #007aff; /* Bleu iOS */
+            margin-top: 12px;
+        }
+        .btn-voiture:active {
+            background-color: #0051d5;
+        }
+        .statut {
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #007aff;
+            min-height: 18px;
+        }
         .info {
             margin-top: 20px;
             font-size: 14px;
@@ -85,6 +100,13 @@
             color: #ff3b30;
             font-weight: 600;
         }
+        /* Icône voiture (emoji) posée sur la carte */
+        .icone-voiture {
+            font-size: 26px;
+            line-height: 36px;
+            text-align: center;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+        }
     </style>
 </head>
 <body>
@@ -93,7 +115,9 @@
         <h1>Où suis-je ?</h1>
         <p>Clique sur le bouton pour afficher la carte en direct.</p>
         <button onclick="trouverPosition()">Ma Position Actuelle</button>
+        <button class="btn-voiture" onclick="memoriserVoiture()">🚗 Je suis garé ici</button>
 
+        <div id="statut-voiture" class="statut"></div>
         <div id="bloc-info" class="info"></div>
         <!-- La carte s'affichera ici -->
         <div id="map"></div>
@@ -103,9 +127,44 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        let carte = null;     // Instance de la carte
-        let marqueur = null;  // Le pointeur, gardé pour pouvoir le déplacer
+        let carte = null;            // Instance de la carte
+        let marqueur = null;         // Marqueur "Tu es ici"
+        let marqueurVoiture = null;  // Marqueur de la voiture garée
 
+        const CLE_VOITURE = 'positionVoiture';   // Clé de sauvegarde localStorage
+
+        const OPTIONS_GEO = {
+            enableHighAccuracy: true,
+            timeout: 7000,
+            maximumAge: 0
+        };
+
+        // Icône personnalisée représentant la voiture (emoji, aucune image externe)
+        const iconeVoiture = L.divIcon({
+            html: '🚗',
+            className: 'icone-voiture',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+            popupAnchor: [0, -18]
+        });
+
+        // ---------- Carte : création unique / réutilisation ----------
+        function assurerCarte(lat, lon, zoom) {
+            const mapDiv = document.getElementById('map');
+            mapDiv.style.display = "block";
+
+            if (carte === null) {
+                carte = L.map('map').setView([lat, lon], zoom || 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(carte);
+            }
+            // La div vient (peut-être) de passer de "none" à "block" : on force
+            // Leaflet à recalculer sa taille (évite tuiles grises / centrage décalé).
+            setTimeout(() => carte.invalidateSize(), 100);
+        }
+
+        // ---------- Ma position ----------
         function trouverPosition() {
             const blocInfo = document.getElementById('bloc-info');
             blocInfo.style.display = "block";
@@ -116,18 +175,11 @@
                 return;
             }
 
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 7000,
-                maximumAge: 0
-            };
-
-            navigator.geolocation.getCurrentPosition(succes, erreur, options);
+            navigator.geolocation.getCurrentPosition(succes, erreur, OPTIONS_GEO);
         }
 
         function succes(position) {
             const blocInfo = document.getElementById('bloc-info');
-            const mapDiv = document.getElementById('map');
 
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
@@ -141,37 +193,80 @@
                 <div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>
             `;
 
-            // 2. Affichage et initialisation de la carte
-            mapDiv.style.display = "block";
+            // 2. Carte + marqueur "Tu es ici"
+            assurerCarte(lat, lon, 16);
+            carte.setView([lat, lon], 16);
 
-            if (carte === null) {
-                // Première fois : on crée la carte ET le marqueur
-                carte = L.map('map').setView([lat, lon], 16);
-
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap'
-                }).addTo(carte);
-
+            if (marqueur === null) {
                 marqueur = L.marker([lat, lon]).addTo(carte);
             } else {
-                // Fois suivantes : on recentre la carte ET on déplace le marqueur
-                carte.setView([lat, lon], 16);
                 marqueur.setLatLng([lat, lon]);
             }
-
-            // Le popup "Tu es ici !" est (ré)ouvert à chaque relevé
             marqueur.bindPopup('Tu es ici !').openPopup();
-
-            // La div #map vient de passer de "none" à "block" : on force Leaflet
-            // à recalculer sa taille, sinon tuiles grises ou centrage décalé.
-            setTimeout(() => carte.invalidateSize(), 100);
 
             // 3. Recherche de l'adresse (reverse geocoding via Nominatim)
             trouverAdresse(lat, lon);
         }
 
+        // ---------- Voiture garée ----------
+        function memoriserVoiture() {
+            const statut = document.getElementById('statut-voiture');
+
+            if (!navigator.geolocation) {
+                statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
+                return;
+            }
+
+            statut.textContent = "Enregistrement de la position de la voiture…";
+
+            navigator.geolocation.getCurrentPosition((position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                sauvegarderVoiture(lat, lon);   // persistance
+                afficherVoiture(lat, lon);      // icône sur la carte
+                carte.setView([lat, lon], 16);
+
+                statut.textContent = "🚗 Voiture enregistrée !";
+            }, () => {
+                statut.innerHTML = "<span class='error'>Impossible de récupérer la position pour la voiture.</span>";
+            }, OPTIONS_GEO);
+        }
+
+        // Place ou déplace l'icône voiture (crée la carte si besoin)
+        function afficherVoiture(lat, lon) {
+            assurerCarte(lat, lon, 16);
+
+            if (marqueurVoiture === null) {
+                marqueurVoiture = L.marker([lat, lon], { icon: iconeVoiture }).addTo(carte);
+            } else {
+                marqueurVoiture.setLatLng([lat, lon]);
+            }
+            marqueurVoiture.bindPopup('🚗 Ma voiture est garée ici');
+        }
+
+        function sauvegarderVoiture(lat, lon) {
+            try {
+                localStorage.setItem(CLE_VOITURE, JSON.stringify({ lat, lon }));
+            } catch (e) {
+                // Stockage indisponible (navigation privée, aperçu en bac à sable…)
+                console.warn("Sauvegarde de la voiture impossible :", e);
+            }
+        }
+
+        function chargerVoiture() {
+            try {
+                const brut = localStorage.getItem(CLE_VOITURE);
+                return brut ? JSON.parse(brut) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // ---------- Adresse (reverse geocoding) ----------
         async function trouverAdresse(lat, lon) {
             const blocAdresse = document.getElementById('bloc-adresse');
+            if (!blocAdresse) return;
 
             const url = `https://nominatim.openstreetmap.org/reverse?format=json`
                       + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
@@ -189,7 +284,6 @@
                 const ville  = a.city || a.town || a.village || a.municipality || '';
                 const pays   = a.country || '';
 
-                // Construction de la ligne "numéro + rue"
                 const ligneRue = [numero, rue].filter(Boolean).join(' ');
                 const ligneVille = [cp, ville].filter(Boolean).join(' ');
 
@@ -215,6 +309,17 @@
                 blocInfo.innerHTML = "<span class='error'>Impossible d'obtenir une position précise.</span>";
             }
         }
+
+        // ---------- Au lancement : réafficher la voiture si elle est mémorisée ----------
+        window.addEventListener('load', () => {
+            const v = chargerVoiture();
+            if (v) {
+                const statut = document.getElementById('statut-voiture');
+                statut.textContent = "🚗 Voiture mémorisée — voici où elle est garée.";
+                afficherVoiture(v.lat, v.lon);
+                carte.setView([v.lat, v.lon], 16);
+            }
+        });
     </script>
 
 </body>
