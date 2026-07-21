@@ -298,7 +298,7 @@
 
         // ================= Config =================
         function parseRepo(txt){
-            const m = (txt || '').trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,'').split('/');
+            const m = (txt || '').trim().replace(/^https?:\/\/github\.com\//i,'').replace(/\.git$/i,'').split('/').map(s=>s.trim()).filter(Boolean);
             if (m.length < 2 || !m[0] || !m[1]){ const e=new Error("❌ Dépôt invalide.\n→ Écris-le sous la forme « utilisateur/nom-du-depot », par ex. hammerinhank/hammerinhank.github.io."); throw e; }
             return { user:m[0], repo:m[1] };
         }
@@ -315,19 +315,38 @@
             document.getElementById('gh-pass').value = passphrase;
         }
 
+        async function identiteToken(tk){
+            try {
+                const r = await fetch('https://api.github.com/user', { headers:{ 'Authorization':'Bearer '+tk, 'Accept':'application/vnd.github+json' } });
+                if (r.ok) return (await r.json()).login || null;
+            } catch(_){}
+            return null;
+        }
         async function testerToken(){
             const tk = document.getElementById('gh-token').value.trim();
             try { const p = parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; }
             catch(e){ majSync(messageErreur(e), '#ff3b30'); return; }
             if (!tk){ majSync("❌ Renseigne d'abord le token.\n→ Colle un Personal Access Token GitHub dans le champ ci-dessus.", '#ff3b30'); return; }
             majSync("Vérification en cours…");
+            const login = await identiteToken(tk);   // compte réel auquel appartient le token
             try {
                 const data = await majBrancheDepuisRepo(tk);
+                const compte = login ? " Token du compte « " + echapper(login) + " »." : "";
                 if (data.permissions && data.permissions.push)
-                    majSync("✅ Token OK : accès en écriture confirmé sur " + echapper(ghUser + "/" + ghRepo) + " (branche « " + echapper(branche) + " »).", '#34c759');
+                    majSync("✅ Token OK : accès en écriture confirmé sur " + echapper(ghUser + "/" + ghRepo) + " (branche « " + echapper(branche) + " »)." + compte, '#34c759');
                 else
-                    majSync("⚠️ Token valide mais SANS droit d'écriture sur ce dépôt.\n→ Accorde « Contents : Read and write » : " + lien(urlTokensFin(), "éditer le token fine-grained") + ". Ou crée un " + lien(urlTokensClassic(), "token classic") + " avec le scope « repo ».", '#ff3b30');
-            } catch(e){ majSync(messageErreur(e), '#ff3b30'); }
+                    majSync("⚠️ Token valide mais SANS droit d'écriture sur ce dépôt." + compte + "\n→ Accorde « Contents : Read and write » : " + lien(urlTokensFin(), "éditer le token fine-grained") + ". Ou crée un " + lien(urlTokensClassic(), "token classic") + " avec le scope « repo ».", '#ff3b30');
+            } catch(e){
+                let diag = "";
+                if (login){
+                    diag = "\n\nℹ️ Ce token appartient au compte « " + echapper(login) + " ».";
+                    if (login.toLowerCase() !== ghUser.toLowerCase())
+                        diag += " Or tu vises le dépôt « " + echapper(ghUser + "/" + ghRepo) + " », qui appartient à un AUTRE compte → c'est la cause du 404.\n→ Soit corrige le champ Dépôt avec le vrai propriétaire (" + lien('https://github.com/'+encodeURIComponent(login)+'?tab=repositories', "voir les dépôts de " + login) + "), soit génère un token depuis le compte propriétaire du dépôt.";
+                    else
+                        diag += " Le compte correspond, donc vérifie le NOM exact du dépôt : " + lien('https://github.com/'+encodeURIComponent(login)+'?tab=repositories', "liste de tes dépôts") + ".";
+                }
+                majSync(messageErreur(e) + diag, '#ff3b30');
+            }
         }
 
         async function enregistrerConfig(){
