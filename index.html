@@ -82,6 +82,7 @@
         <div class="nav-row">
             <button class="btn-nav" onclick="allerMaPosition()">📍 Ma position</button>
             <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
+            <button class="btn-nav" onclick="voirLesDeux()">👁️ Les deux</button>
         </div>
 
         <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
@@ -505,6 +506,21 @@
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             statut.textContent="Localisation en cours…";
             navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; }, erreur, OPTIONS_GEO);
+        }
+        // Cadre la carte pour montrer ta position ET la voiture en même temps
+        function voirLesDeux(){
+            const statut=document.getElementById('statut-voiture');
+            const e=entreeCourante();
+            if(marqueur===null && !e){ statut.innerHTML="<span class='error'>Rien à afficher : localise-toi et enregistre un stationnement.</span>"; return; }
+            if(marqueur===null){ allerVoiture(); statut.textContent="🚗 Voiture affichée. Clique « Ma Position Actuelle » pour voir les deux."; return; }
+            if(!e){ allerMaPosition(); statut.textContent="📍 Position affichée. Aucun stationnement enregistré pour l'instant."; return; }
+            const p=marqueur.getLatLng();
+            assurerCarte(p.lat,p.lng,16);
+            afficherVoiture(e.lat,e.lon);
+            const limites=L.latLngBounds([[p.lat,p.lng],[e.lat,e.lon]]);
+            carte.fitBounds(limites,{padding:[50,50],maxZoom:17});
+            statut.textContent="👁️ Ta position et ta voiture sont visibles.";
+            majDistance();
         }
         // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
         function itineraireVersVoiture(){
