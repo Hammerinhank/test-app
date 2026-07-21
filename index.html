@@ -322,6 +322,18 @@
             } catch(_){}
             return null;
         }
+        async function listerDepots(tk){
+            try {
+                const r = await fetch('https://api.github.com/user/repos?per_page=100&sort=full_name&affiliation=owner', { headers:{ 'Authorization':'Bearer '+tk, 'Accept':'application/vnd.github+json' } });
+                if (!r.ok) return [];
+                return (await r.json()).map(x=>x.full_name).filter(Boolean);
+            } catch(_){ return []; }
+        }
+        function utiliserDepot(fullName){
+            document.getElementById('gh-repo').value = fullName;
+            testerToken();
+            return false;
+        }
         async function testerToken(){
             const tk = document.getElementById('gh-token').value.trim();
             try { const p = parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; }
@@ -341,9 +353,17 @@
                 if (login){
                     diag = "\n\nℹ️ Ce token appartient au compte « " + echapper(login) + " ».";
                     if (login.toLowerCase() !== ghUser.toLowerCase())
-                        diag += " Or tu vises le dépôt « " + echapper(ghUser + "/" + ghRepo) + " », qui appartient à un AUTRE compte → c'est la cause du 404.\n→ Soit corrige le champ Dépôt avec le vrai propriétaire (" + lien('https://github.com/'+encodeURIComponent(login)+'?tab=repositories', "voir les dépôts de " + login) + "), soit génère un token depuis le compte propriétaire du dépôt.";
+                        diag += " Or tu vises « " + echapper(ghUser + "/" + ghRepo) + " », qui appartient à un AUTRE compte → c'est la cause du 404.";
                     else
-                        diag += " Le compte correspond, donc vérifie le NOM exact du dépôt : " + lien('https://github.com/'+encodeURIComponent(login)+'?tab=repositories', "liste de tes dépôts") + ".";
+                        diag += " Le compte correspond : le nom « " + echapper(ghRepo) + " » ne correspond à aucun de tes dépôts.";
+                    const depots = await listerDepots(tk);
+                    if (depots.length){
+                        depots.sort((a,b)=> (b.toLowerCase().endsWith('.github.io')?1:0)-(a.toLowerCase().endsWith('.github.io')?1:0) || a.toLowerCase().localeCompare(b.toLowerCase()));
+                        const liste = depots.slice(0,40).map(f=>'<a href="#" onclick="return utiliserDepot(this.textContent)">'+echapper(f)+'</a>').join('\n');
+                        diag += "\n\n👉 Touche le bon dépôt ci-dessous : le champ se remplit et le test se relance tout seul.\n" + liste;
+                    } else {
+                        diag += "\n→ " + lien('https://github.com/'+encodeURIComponent(login)+'?tab=repositories', "voir tes dépôts sur GitHub");
+                    }
                 }
                 majSync(messageErreur(e) + diag, '#ff3b30');
             }
