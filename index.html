@@ -88,6 +88,14 @@
             color: #007aff;
             min-height: 18px;
         }
+        /* Distance à vol d'oiseau */
+        .distance {
+            margin-top: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #1d1d1f;
+            min-height: 18px;
+        }
         .info {
             margin-top: 20px;
             font-size: 14px;
@@ -141,6 +149,7 @@
         </div>
 
         <div id="statut-voiture" class="statut"></div>
+        <div id="distance" class="distance"></div>
         <div id="bloc-info" class="info"></div>
         <!-- La carte s'affichera ici -->
         <div id="map"></div>
@@ -230,6 +239,9 @@
 
             // 3. Recherche de l'adresse (reverse geocoding via Nominatim)
             trouverAdresse(lat, lon);
+
+            // 4. Distance à la voiture (si elle est mémorisée)
+            majDistance();
         }
 
         // ---------- Voiture garée ----------
@@ -252,6 +264,7 @@
                 carte.setView([lat, lon], 16);
 
                 statut.textContent = "🚗 Voiture enregistrée !";
+                majDistance();
             }, () => {
                 statut.innerHTML = "<span class='error'>Impossible de récupérer la position pour la voiture.</span>";
             }, OPTIONS_GEO);
@@ -287,6 +300,29 @@
             }
         }
 
+        // ---------- Distance à vol d'oiseau ----------
+        function majDistance() {
+            const blocDist = document.getElementById('distance');
+            const v = chargerVoiture();
+
+            // Il faut à la fois ma position (marqueur) et la voiture
+            if (marqueur === null || !v) {
+                blocDist.textContent = "";
+                return;
+            }
+
+            const p = marqueur.getLatLng();
+            const metres = L.latLng(p.lat, p.lng).distanceTo(L.latLng(v.lat, v.lon));
+            blocDist.textContent = "📏 Voiture à " + formaterDistance(metres) + " à vol d'oiseau";
+        }
+
+        function formaterDistance(m) {
+            if (m < 1000) {
+                return Math.round(m) + " m";
+            }
+            return (m / 1000).toFixed(2).replace('.', ',') + " km";
+        }
+
         // ---------- Boutons de navigation ----------
         // Recentrer sur ma voiture
         function allerVoiture() {
@@ -302,6 +338,7 @@
             carte.setView([v.lat, v.lon], 17);
             marqueurVoiture.openPopup();
             statut.textContent = "🚗 Direction ta voiture.";
+            majDistance();
         }
 
         // Recentrer sur ma position
@@ -314,6 +351,7 @@
                 carte.setView([p.lat, p.lng], 17);
                 marqueur.openPopup();
                 statut.textContent = "📍 Recentré sur ta position.";
+                majDistance();
                 return;
             }
 
