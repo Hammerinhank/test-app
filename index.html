@@ -66,6 +66,7 @@
         .btn-gris:active { background: #d1d1d6; }
         /* messages multi-lignes, avec la démarche à suivre */
         .sync-statut { margin-top: 12px; font-size: 13px; font-weight: 600; min-height: 16px; white-space: pre-line; line-height: 1.5; }
+        .sync-statut a { color: #007aff; text-decoration: underline; font-weight: 700; }
         .mode-stockage { margin-top: 10px; font-size: 13px; font-weight: 600; color: #34c759; text-align: center; }
         .aide { font-size: 12px; color: #86868b; margin-top: 12px; line-height: 1.5; }
     </style>
@@ -148,6 +149,12 @@
 
         // ================= Utilitaires =================
         function echapper(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+        // Liens directs vers les bonnes pages GitHub
+        function lien(url, texte){ return '<a href="'+url+'" target="_blank" rel="noopener">'+echapper(texte)+'</a>'; }
+        function urlTokensFin(){ return 'https://github.com/settings/personal-access-tokens'; }
+        function urlTokensClassic(){ return 'https://github.com/settings/tokens'; }
+        function urlDepot(){ return 'https://github.com/'+encodeURIComponent(ghUser)+'/'+encodeURIComponent(ghRepo); }
+        function urlFichier(){ return urlDepot()+'/blob/'+encodeURIComponent(branche)+'/'+encodeURIComponent(FICHIER); }
         function formaterDistance(m){ return m<1000 ? Math.round(m)+" m" : (m/1000).toFixed(2).replace('.',',')+" km"; }
         function formaterDate(iso){ return new Date(iso).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
         function b64FromBytes(b){ let s=''; b.forEach(x=>s+=String.fromCharCode(x)); return btoa(s); }
@@ -172,10 +179,12 @@
 
         // ================= Messages d'erreur précis =================
         function detailStatut(res, corps){
-            const c = corps ? " – « " + corps + " »" : "";
+            const c = corps ? " – « " + echapper(corps) + " »" : "";
+            const depot = echapper(ghUser + "/" + ghRepo);
             switch(res.status){
                 case 401: return "❌ Token refusé (401, non authentifié)." + c +
-                    "\n→ Le token est invalide, expiré ou révoqué. Régénère-le : GitHub → Settings → Developer settings → Personal access tokens, puis recolle-le et clique « Tester le token ».";
+                    "\n→ Le token est invalide, expiré ou révoqué. Régénère-le puis recolle-le et clique « Tester le token » : " +
+                    lien(urlTokensFin(), "mes tokens fine-grained") + " · " + lien(urlTokensClassic(), "mes tokens classic") + ".";
                 case 403:
                     if (res.headers.get('X-RateLimit-Remaining') === '0'){
                         const r = res.headers.get('X-RateLimit-Reset');
@@ -184,10 +193,11 @@
                             "\n→ Attends jusqu'à " + h + " puis réessaie. Rien n'est perdu : l'historique reste enregistré en local.";
                     }
                     return "❌ Accès interdit (403)." + c +
-                        "\n→ Le token est valide mais n'a pas le droit d'écrire sur " + ghUser + "/" + ghRepo +
-                        ". Fine-grained : accorde « Contents : Read and write » ET coche ce dépôt dans « Repository access ». Classic : coche le scope « repo ».";
+                        "\n→ Le token n'a pas le droit d'écrire sur " + depot + ". Ouvre-le et accorde « Contents : Read and write » (et coche ce dépôt dans « Repository access ») : " +
+                        lien(urlTokensFin(), "éditer un token fine-grained") + ". Ou crée un " + lien(urlTokensClassic(), "token classic") + " avec le scope « repo ».";
                 case 404: return "❌ Dépôt introuvable (404)." + c +
-                    "\n→ Vérifie le champ Dépôt (« " + ghUser + "/" + ghRepo + " »). Avec un token fine-grained, ce dépôt précis doit être coché dans « Repository access » du token.";
+                    "\n→ Vérifie le dépôt : " + lien(urlDepot(), depot) + ". Avec un token fine-grained, ce dépôt doit être coché dans « Repository access » : " +
+                    lien(urlTokensFin(), "régler l'accès du token") + ".";
                 case 409: return "⚠️ Conflit de version (409) : le fichier a changé entre-temps." +
                     "\n→ Réessaie ; l'app récupère automatiquement la dernière version avant d'écrire.";
                 case 422: return "❌ Requête rejetée par GitHub (422)." + c +
@@ -206,9 +216,10 @@
                     "\n→ Vérifie ta connexion internet. Si tu es hors ligne, aucun souci : l'historique reste enregistré en local et sera synchronisé au prochain accès.";
             if (e && (e.name === 'OperationError' || /decrypt|déchiffr/i.test(e.message || '')))
                 return "❌ Déchiffrement impossible : la phrase de passe ne correspond pas au contenu de parkings.json." +
-                    "\n→ Retape exactement la phrase utilisée au tout premier enregistrement. Si tu l'as perdue, supprime parkings.json sur GitHub pour repartir de zéro (l'historique local, lui, est conservé).";
+                    "\n→ Retape exactement la phrase utilisée au tout premier enregistrement. Si tu l'as perdue, supprime le fichier pour repartir de zéro (l'historique local est conservé) : " +
+                    lien(urlFichier(), "ouvrir parkings.json sur GitHub") + ".";
             if (e && /Dépôt invalide/.test(e.message || '')) return e.message;
-            return "❌ Erreur inattendue : " + (e && e.message ? e.message : e);
+            return "❌ Erreur inattendue : " + echapper(e && e.message ? e.message : String(e));
         }
 
         // ================= Stockage local (mode autonome) =================
@@ -278,7 +289,7 @@
             majMode();
         }
 
-        function majSync(txt, couleur){ const el=document.getElementById('sync-statut'); el.textContent=txt; el.style.color=couleur||'#007aff'; }
+        function majSync(html, couleur){ const el=document.getElementById('sync-statut'); el.innerHTML=html; el.style.color=couleur||'#007aff'; }
         function majMode(){
             const el = document.getElementById('mode-stockage');
             if (configComplete()){ el.textContent = "Stockage : local ✓  +  GitHub ✓"; el.style.color = '#34c759'; }
@@ -313,9 +324,9 @@
             try {
                 const data = await majBrancheDepuisRepo(tk);
                 if (data.permissions && data.permissions.push)
-                    majSync("✅ Token OK : accès en écriture confirmé sur " + ghUser + "/" + ghRepo + " (branche « " + branche + " »).", '#34c759');
+                    majSync("✅ Token OK : accès en écriture confirmé sur " + echapper(ghUser + "/" + ghRepo) + " (branche « " + echapper(branche) + " »).", '#34c759');
                 else
-                    majSync("⚠️ Token valide mais SANS droit d'écriture sur ce dépôt.\n→ Édite le token dans GitHub et accorde « Contents : Read and write » (fine-grained) ou le scope « repo » (classic).", '#ff3b30');
+                    majSync("⚠️ Token valide mais SANS droit d'écriture sur ce dépôt.\n→ Accorde « Contents : Read and write » : " + lien(urlTokensFin(), "éditer le token fine-grained") + ". Ou crée un " + lien(urlTokensClassic(), "token classic") + " avec le scope « repo ».", '#ff3b30');
             } catch(e){ majSync(messageErreur(e), '#ff3b30'); }
         }
 
