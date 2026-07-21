@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ma Géolocalisation avec Carte</title>
 
-    <!-- En-tête Leaflet pour la carte (CSS) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
@@ -32,106 +31,78 @@
             max-width: 380px;
             box-sizing: border-box;
         }
-        h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        p {
-            font-size: 14px;
-            color: #86868b;
-            margin-bottom: 20px;
-        }
+        h1 { font-size: 24px; margin-bottom: 10px; }
+        p  { font-size: 14px; color: #86868b; margin-bottom: 20px; }
         button {
             padding: 14px 20px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            background-color: #34c759; /* Vert iOS */
+            background-color: #34c759;
             color: white;
             border: none;
             border-radius: 10px;
             width: 100%;
             transition: background 0.2s;
         }
-        button:active {
-            background-color: #248a3d;
-        }
-        /* Bouton "Je suis garé ici" */
-        .btn-voiture {
-            background-color: #007aff; /* Bleu iOS */
-            margin-top: 12px;
-        }
-        .btn-voiture:active {
-            background-color: #0051d5;
-        }
-        /* Rangée des deux boutons de navigation */
-        .nav-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 12px;
-        }
+        button:active { background-color: #248a3d; }
+        .btn-voiture { background-color: #007aff; margin-top: 12px; }
+        .btn-voiture:active { background-color: #0051d5; }
+        .nav-row { display: flex; gap: 10px; margin-top: 12px; }
         .btn-nav {
-            flex: 1;
-            width: auto;
-            background-color: #e8e8ed;
-            color: #1d1d1f;
-            font-size: 15px;
-            padding: 12px 8px;
+            flex: 1; width: auto;
+            background-color: #e8e8ed; color: #1d1d1f;
+            font-size: 15px; padding: 12px 8px;
         }
-        .btn-nav:active {
-            background-color: #d1d1d6;
-        }
+        .btn-nav:active { background-color: #d1d1d6; }
         .statut {
-            margin-top: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #007aff;
-            min-height: 18px;
+            margin-top: 12px; font-size: 14px; font-weight: 600;
+            color: #007aff; min-height: 18px;
         }
-        /* Distance à vol d'oiseau */
         .distance {
-            margin-top: 8px;
-            font-size: 15px;
-            font-weight: 600;
-            color: #1d1d1f;
-            min-height: 18px;
+            margin-top: 8px; font-size: 15px; font-weight: 600;
+            color: #1d1d1f; min-height: 18px;
         }
         .info {
-            margin-top: 20px;
-            font-size: 14px;
-            line-height: 1.6;
-            text-align: left;
-            background: #f5f5f7;
-            padding: 15px;
-            border-radius: 10px;
-            display: none;
-            word-break: break-word;
+            margin-top: 20px; font-size: 14px; line-height: 1.6;
+            text-align: left; background: #f5f5f7; padding: 15px;
+            border-radius: 10px; display: none; word-break: break-word;
         }
-        .adresse {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #e0e0e0;
-        }
-        /* Conteneur de la carte - Hauteur obligatoire pour Leaflet */
+        .adresse { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; }
         #map {
-            height: 250px;
-            width: 100%;
-            border-radius: 10px;
-            margin-top: 15px;
-            display: none; /* Caché au début */
+            height: 250px; width: 100%; border-radius: 10px;
+            margin-top: 15px; display: none;
             box-shadow: inset 0 0 5px rgba(0,0,0,0.15);
         }
-        .error {
-            color: #ff3b30;
-            font-weight: 600;
-        }
-        /* Icône voiture (emoji) posée sur la carte */
+        .error { color: #ff3b30; font-weight: 600; }
         .icone-voiture {
-            font-size: 26px;
-            line-height: 36px;
-            text-align: center;
+            font-size: 26px; line-height: 36px; text-align: center;
             filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
         }
+        /* ---- Historique ---- */
+        .histo-titre {
+            display: none; margin-top: 22px; margin-bottom: 8px;
+            font-size: 16px; font-weight: 700; text-align: left;
+        }
+        .histo-item {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; text-align: left;
+            background: #f5f5f7; border-radius: 10px;
+            padding: 10px 12px; margin-bottom: 8px;
+            border: 2px solid transparent;
+        }
+        .histo-item.actif { border-color: #007aff; }
+        .histo-info { display: flex; flex-direction: column; overflow: hidden; }
+        .histo-date { font-size: 13px; color: #86868b; }
+        .histo-lieu { font-size: 14px; font-weight: 600; }
+        .histo-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .mini {
+            width: auto; padding: 8px 10px; font-size: 13px; border-radius: 8px;
+        }
+        .mini.voir { background: #007aff; }
+        .mini.voir:active { background: #0051d5; }
+        .mini.suppr { background: #ff3b30; }
+        .mini.suppr:active { background: #c1271d; }
     </style>
 </head>
 <body>
@@ -142,7 +113,6 @@
         <button onclick="trouverPosition()">Ma Position Actuelle</button>
         <button class="btn-voiture" onclick="memoriserVoiture()">🚗 Je suis garé ici</button>
 
-        <!-- Boutons de navigation sur la carte -->
         <div class="nav-row">
             <button class="btn-nav" onclick="allerMaPosition()">📍 Ma position</button>
             <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
@@ -151,48 +121,93 @@
         <div id="statut-voiture" class="statut"></div>
         <div id="distance" class="distance"></div>
         <div id="bloc-info" class="info"></div>
-        <!-- La carte s'affichera ici -->
         <div id="map"></div>
+
+        <div id="histo-titre" class="histo-titre">🅿️ Historique des stationnements</div>
+        <div id="historique"></div>
     </div>
 
-    <!-- Moteur de la carte Leaflet (JavaScript) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        let carte = null;            // Instance de la carte
-        let marqueur = null;         // Marqueur "Tu es ici"
-        let marqueurVoiture = null;  // Marqueur de la voiture garée
+        let carte = null;
+        let marqueur = null;         // "Tu es ici"
+        let marqueurVoiture = null;  // Voiture affichée
 
-        const CLE_VOITURE = 'positionVoiture';   // Clé de sauvegarde localStorage
+        let historique = [];         // [{ id, lat, lon, adresse, date }]
+        let idSelection = null;      // id de l'entrée montrée par l'icône voiture
 
-        const OPTIONS_GEO = {
-            enableHighAccuracy: true,
-            timeout: 7000,
-            maximumAge: 0
-        };
+        const CLE_HISTO   = 'historiqueVoiture';
+        const CLE_ANCIENNE = 'positionVoiture';  // ancienne clé (mono-position)
 
-        // Icône personnalisée représentant la voiture (emoji, aucune image externe)
+        const OPTIONS_GEO = { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 };
+
         const iconeVoiture = L.divIcon({
-            html: '🚗',
-            className: 'icone-voiture',
-            iconSize: [36, 36],
-            iconAnchor: [18, 18],
-            popupAnchor: [0, -18]
+            html: '🚗', className: 'icone-voiture',
+            iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
 
-        // ---------- Carte : création unique / réutilisation ----------
+        // ---------- Utilitaires ----------
+        function echapper(s) {
+            const d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
+        }
+
+        function formaterDistance(m) {
+            if (m < 1000) return Math.round(m) + " m";
+            return (m / 1000).toFixed(2).replace('.', ',') + " km";
+        }
+
+        function formaterDate(iso) {
+            const d = new Date(iso);
+            return d.toLocaleString('fr-FR', {
+                day: '2-digit', month: 'short',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        // ---------- Stockage ----------
+        function sauverHistorique() {
+            try {
+                localStorage.setItem(CLE_HISTO, JSON.stringify(historique));
+            } catch (e) {
+                console.warn("Sauvegarde de l'historique impossible :", e);
+            }
+        }
+
+        function chargerHistorique() {
+            try {
+                const brut = localStorage.getItem(CLE_HISTO);
+                if (brut) {
+                    historique = JSON.parse(brut) || [];
+                } else {
+                    // Migration éventuelle depuis l'ancienne clé mono-position
+                    const ancien = localStorage.getItem(CLE_ANCIENNE);
+                    if (ancien) {
+                        const v = JSON.parse(ancien);
+                        historique = [{
+                            id: Date.now(), lat: v.lat, lon: v.lon,
+                            adresse: null, date: new Date().toISOString()
+                        }];
+                        sauverHistorique();
+                    }
+                }
+            } catch (e) {
+                historique = [];
+            }
+        }
+
+        // ---------- Carte ----------
         function assurerCarte(lat, lon, zoom) {
             const mapDiv = document.getElementById('map');
             mapDiv.style.display = "block";
-
             if (carte === null) {
                 carte = L.map('map').setView([lat, lon], zoom || 16);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap'
                 }).addTo(carte);
             }
-            // La div vient (peut-être) de passer de "none" à "block" : on force
-            // Leaflet à recalculer sa taille (évite tuiles grises / centrage décalé).
             setTimeout(() => carte.invalidateSize(), 100);
         }
 
@@ -201,23 +216,19 @@
             const blocInfo = document.getElementById('bloc-info');
             blocInfo.style.display = "block";
             blocInfo.innerHTML = "<em>Demande d'autorisation et calcul en cours...</em>";
-
             if (!navigator.geolocation) {
                 blocInfo.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
                 return;
             }
-
             navigator.geolocation.getCurrentPosition(succes, erreur, OPTIONS_GEO);
         }
 
         function succes(position) {
             const blocInfo = document.getElementById('bloc-info');
-
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
             const precision = position.coords.accuracy;
 
-            // 1. Affichage des coordonnées + zone d'adresse (en attente)
             blocInfo.style.display = "block";
             blocInfo.innerHTML = `
                 <strong>Latitude :</strong> ${lat.toFixed(6)}<br>
@@ -226,7 +237,6 @@
                 <div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>
             `;
 
-            // 2. Carte + marqueur "Tu es ici"
             assurerCarte(lat, lon, 16);
             carte.setView([lat, lon], 16);
 
@@ -237,115 +247,163 @@
             }
             marqueur.bindPopup('Tu es ici !').openPopup();
 
-            // 3. Recherche de l'adresse (reverse geocoding via Nominatim)
             trouverAdresse(lat, lon);
-
-            // 4. Distance à la voiture (si elle est mémorisée)
             majDistance();
         }
 
-        // ---------- Voiture garée ----------
+        // ---------- Voiture : entrée courante / affichage ----------
+        function entreeCourante() {
+            if (!historique.length) return null;
+            if (idSelection != null) {
+                const e = historique.find(x => x.id === idSelection);
+                if (e) return e;
+            }
+            return historique[historique.length - 1]; // la plus récente
+        }
+
+        function afficherVoiture(lat, lon) {
+            assurerCarte(lat, lon, 16);
+            if (marqueurVoiture === null) {
+                marqueurVoiture = L.marker([lat, lon], { icon: iconeVoiture }).addTo(carte);
+            } else {
+                marqueurVoiture.setLatLng([lat, lon]);
+            }
+        }
+
+        function popupVoiture(e) {
+            const lieu = e.adresse ? echapper(e.adresse)
+                                   : (e.lat.toFixed(5) + ', ' + e.lon.toFixed(5));
+            return `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`;
+        }
+
+        // Sélectionne une entrée : déplace l'icône voiture dessus + recentre
+        function selectionnerEntree(id) {
+            idSelection = id;
+            const e = entreeCourante();
+            if (!e) return;
+            afficherVoiture(e.lat, e.lon);
+            carte.setView([e.lat, e.lon], 17);
+            marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
+            majAffichageHistorique();
+            majDistance();
+        }
+
+        // ---------- Enregistrer un stationnement ----------
         function memoriserVoiture() {
             const statut = document.getElementById('statut-voiture');
-
             if (!navigator.geolocation) {
                 statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
                 return;
             }
-
             statut.textContent = "Enregistrement de la position de la voiture…";
 
-            navigator.geolocation.getCurrentPosition((position) => {
+            navigator.geolocation.getCurrentPosition(async (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
 
-                sauvegarderVoiture(lat, lon);   // persistance
-                afficherVoiture(lat, lon);      // icône sur la carte
-                carte.setView([lat, lon], 16);
+                const adresse = await recupererAdresseCourte(lat, lon);
 
-                statut.textContent = "🚗 Voiture enregistrée !";
+                const entree = {
+                    id: Date.now(), lat, lon, adresse,
+                    date: new Date().toISOString()
+                };
+                historique.push(entree);
+                sauverHistorique();
+
+                idSelection = entree.id;
+                afficherVoiture(lat, lon);
+                carte.setView([lat, lon], 16);
+                marqueurVoiture.bindPopup(popupVoiture(entree));
+
+                statut.textContent = "🚗 Stationnement enregistré !";
+                majAffichageHistorique();
                 majDistance();
             }, () => {
                 statut.innerHTML = "<span class='error'>Impossible de récupérer la position pour la voiture.</span>";
             }, OPTIONS_GEO);
         }
 
-        // Place ou déplace l'icône voiture (crée la carte si besoin)
-        function afficherVoiture(lat, lon) {
-            assurerCarte(lat, lon, 16);
+        // ---------- Historique : affichage + suppression ----------
+        function majAffichageHistorique() {
+            const bloc = document.getElementById('historique');
+            const titre = document.getElementById('histo-titre');
 
-            if (marqueurVoiture === null) {
-                marqueurVoiture = L.marker([lat, lon], { icon: iconeVoiture }).addTo(carte);
-            } else {
-                marqueurVoiture.setLatLng([lat, lon]);
+            if (!historique.length) {
+                bloc.innerHTML = '';
+                titre.style.display = 'none';
+                return;
             }
-            marqueurVoiture.bindPopup('🚗 Ma voiture est garée ici');
+            titre.style.display = 'block';
+
+            const courante = entreeCourante();
+            const idCourant = courante ? courante.id : null;
+
+            // Du plus récent au plus ancien
+            bloc.innerHTML = [...historique].reverse().map(e => {
+                const lieu = e.adresse ? echapper(e.adresse)
+                                       : (e.lat.toFixed(5) + ', ' + e.lon.toFixed(5));
+                const actif = (e.id === idCourant) ? ' actif' : '';
+                return `
+                    <div class="histo-item${actif}">
+                        <div class="histo-info">
+                            <span class="histo-date">${echapper(formaterDate(e.date))}</span>
+                            <span class="histo-lieu">${lieu}</span>
+                        </div>
+                        <div class="histo-actions">
+                            <button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button>
+                            <button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button>
+                        </div>
+                    </div>`;
+            }).join('');
         }
 
-        function sauvegarderVoiture(lat, lon) {
-            try {
-                localStorage.setItem(CLE_VOITURE, JSON.stringify({ lat, lon }));
-            } catch (e) {
-                // Stockage indisponible (navigation privée, aperçu en bac à sable…)
-                console.warn("Sauvegarde de la voiture impossible :", e);
-            }
-        }
+        function supprimerEntree(id) {
+            const e = historique.find(x => x.id === id);
+            const lieu = e && e.adresse ? e.adresse : "cette entrée";
+            if (!confirm("Supprimer « " + lieu + " » de l'historique ?")) return;
 
-        function chargerVoiture() {
-            try {
-                const brut = localStorage.getItem(CLE_VOITURE);
-                return brut ? JSON.parse(brut) : null;
-            } catch (e) {
-                return null;
+            historique = historique.filter(x => x.id !== id);
+            sauverHistorique();
+
+            if (idSelection === id) idSelection = null;
+
+            const courante = entreeCourante();
+            if (courante) {
+                afficherVoiture(courante.lat, courante.lon);
+                if (marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante));
+            } else if (marqueurVoiture) {
+                carte.removeLayer(marqueurVoiture);
+                marqueurVoiture = null;
             }
+
+            majAffichageHistorique();
+            majDistance();
         }
 
         // ---------- Distance à vol d'oiseau ----------
         function majDistance() {
             const blocDist = document.getElementById('distance');
-            const v = chargerVoiture();
-
-            // Il faut à la fois ma position (marqueur) et la voiture
-            if (marqueur === null || !v) {
-                blocDist.textContent = "";
-                return;
-            }
-
+            const e = entreeCourante();
+            if (marqueur === null || !e) { blocDist.textContent = ""; return; }
             const p = marqueur.getLatLng();
-            const metres = L.latLng(p.lat, p.lng).distanceTo(L.latLng(v.lat, v.lon));
+            const metres = L.latLng(p.lat, p.lng).distanceTo(L.latLng(e.lat, e.lon));
             blocDist.textContent = "📏 Voiture à " + formaterDistance(metres) + " à vol d'oiseau";
         }
 
-        function formaterDistance(m) {
-            if (m < 1000) {
-                return Math.round(m) + " m";
-            }
-            return (m / 1000).toFixed(2).replace('.', ',') + " km";
-        }
-
-        // ---------- Boutons de navigation ----------
-        // Recentrer sur ma voiture
+        // ---------- Navigation ----------
         function allerVoiture() {
             const statut = document.getElementById('statut-voiture');
-            const v = chargerVoiture();
-
-            if (!v) {
-                statut.innerHTML = "<span class='error'>Aucune voiture enregistrée pour l'instant.</span>";
+            if (!historique.length) {
+                statut.innerHTML = "<span class='error'>Aucun stationnement enregistré pour l'instant.</span>";
                 return;
             }
-
-            afficherVoiture(v.lat, v.lon);          // s'assure que l'icône est là
-            carte.setView([v.lat, v.lon], 17);
-            marqueurVoiture.openPopup();
+            idSelection = null; // => la plus récente
+            selectionnerEntree(historique[historique.length - 1].id);
             statut.textContent = "🚗 Direction ta voiture.";
-            majDistance();
         }
 
-        // Recentrer sur ma position
         function allerMaPosition() {
             const statut = document.getElementById('statut-voiture');
-
-            // Si on a déjà une position relevée, on recentre dessus immédiatement
             if (marqueur !== null) {
                 const p = marqueur.getLatLng();
                 carte.setView([p.lat, p.lng], 17);
@@ -354,8 +412,6 @@
                 majDistance();
                 return;
             }
-
-            // Sinon, on relève la position en direct (réutilise "Ma Position Actuelle")
             if (!navigator.geolocation) {
                 statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
                 return;
@@ -368,34 +424,45 @@
         }
 
         // ---------- Adresse (reverse geocoding) ----------
+        async function recupererAdresseCourte(lat, lon) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json`
+                          + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
+                const r = await fetch(url);
+                if (!r.ok) throw new Error("Réponse invalide");
+                const data = await r.json();
+                const a = data.address || {};
+                const rue = [a.house_number, a.road || a.pedestrian || a.footway]
+                            .filter(Boolean).join(' ');
+                const ville = a.city || a.town || a.village || a.municipality || '';
+                return [rue, ville].filter(Boolean).join(', ') || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
         async function trouverAdresse(lat, lon) {
             const blocAdresse = document.getElementById('bloc-adresse');
             if (!blocAdresse) return;
-
             const url = `https://nominatim.openstreetmap.org/reverse?format=json`
                       + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
-
             try {
                 const reponse = await fetch(url);
                 if (!reponse.ok) throw new Error("Réponse invalide");
-
                 const data = await reponse.json();
                 const a = data.address || {};
-
                 const numero = a.house_number || '';
                 const rue    = a.road || a.pedestrian || a.footway || '';
                 const cp     = a.postcode || '';
                 const ville  = a.city || a.town || a.village || a.municipality || '';
                 const pays   = a.country || '';
-
                 const ligneRue = [numero, rue].filter(Boolean).join(' ');
                 const ligneVille = [cp, ville].filter(Boolean).join(' ');
-
                 blocAdresse.innerHTML = `
                     <strong>Adresse :</strong><br>
-                    ${ligneRue || '—'}<br>
-                    ${ligneVille || ''}<br>
-                    ${pays || ''}
+                    ${echapper(ligneRue) || '—'}<br>
+                    ${echapper(ligneVille) || ''}<br>
+                    ${echapper(pays) || ''}
                 `;
             } catch (e) {
                 blocAdresse.innerHTML =
@@ -407,7 +474,6 @@
             const blocInfo = document.getElementById('bloc-info');
             document.getElementById('map').style.display = "none";
             blocInfo.style.display = "block";
-
             if (err.code === err.PERMISSION_DENIED) {
                 blocInfo.innerHTML = "<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>";
             } else {
@@ -415,14 +481,17 @@
             }
         }
 
-        // ---------- Au lancement : réafficher la voiture si elle est mémorisée ----------
+        // ---------- Au lancement ----------
         window.addEventListener('load', () => {
-            const v = chargerVoiture();
-            if (v) {
+            chargerHistorique();
+            majAffichageHistorique();
+            const e = entreeCourante();
+            if (e) {
                 const statut = document.getElementById('statut-voiture');
-                statut.textContent = "🚗 Voiture mémorisée — voici où elle est garée.";
-                afficherVoiture(v.lat, v.lon);
-                carte.setView([v.lat, v.lon], 16);
+                statut.textContent = "🚗 Dernier stationnement mémorisé.";
+                afficherVoiture(e.lat, e.lon);
+                carte.setView([e.lat, e.lon], 16);
+                marqueurVoiture.bindPopup(popupVoiture(e));
             }
         });
     </script>
