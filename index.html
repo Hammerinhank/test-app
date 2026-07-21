@@ -3,731 +3,498 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Le Déployeur d'Apps</title>
+    <title>Ma Géolocalisation avec Carte</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
             background-color: #f5f5f7;
             color: #1d1d1f;
-            margin: 0;
             padding: 20px;
-        }
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
+            box-sizing: border-box;
         }
         .card {
+            text-align: center;
+            padding: 25px;
             background: white;
-            border-radius: 14px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        h2 { font-size: 18px; margin-top: 0; color: #0071e3; }
-        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #86868b; }
-        input, select, textarea {
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
             width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #d2d2d7;
-            border-radius: 8px;
-            font-size: 15px;
+            max-width: 380px;
             box-sizing: border-box;
-            background-color: #fbfbfd;
         }
-        textarea { font-family: monospace; height: 180px; resize: vertical; }
-        .btn {
-            background-color: #0071e3;
-            color: white;
+        h1 { font-size: 24px; margin-bottom: 10px; }
+        p  { font-size: 14px; color: #86868b; margin-bottom: 20px; }
+        button {
+            padding: 14px 20px;
+            font-size: 16px;
             font-weight: 600;
+            cursor: pointer;
+            background-color: #34c759;
+            color: white;
             border: none;
-            padding: 14px;
             border-radius: 10px;
             width: 100%;
-            cursor: pointer;
-            font-size: 16px;
+            transition: background 0.2s;
         }
-        .btn:active { background-color: #005bb5; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-secondary { background-color: #34c759; margin-top: 5px; }
-        .btn-secondary:active { background-color: #248a3d; }
-        .status {
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            white-space: pre-wrap;
-            display: none;
+        button:active { background-color: #248a3d; }
+        .btn-voiture { background-color: #007aff; margin-top: 12px; }
+        .btn-voiture:active { background-color: #0051d5; }
+        .nav-row { display: flex; gap: 10px; margin-top: 12px; }
+        .btn-nav {
+            flex: 1; width: auto;
+            background-color: #e8e8ed; color: #1d1d1f;
+            font-size: 15px; padding: 12px 8px;
         }
-        .success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-        .error { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
-        .target-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f5f5f7;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            font-size: 14px;
+        .btn-nav:active { background-color: #d1d1d6; }
+        .statut {
+            margin-top: 12px; font-size: 14px; font-weight: 600;
+            color: #007aff; min-height: 18px;
         }
-        .delete-btn { color: #ff3b30; background: none; border: none; font-weight: bold; cursor: pointer; }
-
-        /* Styles de l'historique */
-        .commit-item {
-            background: #f5f5f7;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            font-size: 14px;
+        .distance {
+            margin-top: 8px; font-size: 15px; font-weight: 600;
+            color: #1d1d1f; min-height: 18px;
         }
-        .commit-item.current { border: 2px solid #34c759; }
-        .commit-date { font-weight: 600; color: #1d1d1f; }
-        .commit-msg { color: #86868b; font-size: 13px; margin: 4px 0 10px 0; word-break: break-word; }
-        .commit-badge {
-            display: inline-block;
-            background: #34c759;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: 6px;
-            vertical-align: middle;
+        .info {
+            margin-top: 20px; font-size: 14px; line-height: 1.6;
+            text-align: left; background: #f5f5f7; padding: 15px;
+            border-radius: 10px; display: none; word-break: break-word;
         }
-        .commit-actions { display: flex; gap: 8px; }
-        .btn-small {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
+        .adresse { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; }
+        #map {
+            height: 250px; width: 100%; border-radius: 10px;
+            margin-top: 15px; display: none;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.15);
         }
-        .btn-view { background-color: #e5e5ea; color: #1d1d1f; }
-        .btn-copy { background-color: #0071e3; color: white; }
-        .btn-copy:active { background-color: #005bb5; }
-        .btn-restore { background-color: #ff9500; color: white; }
-        .btn-restore:active { background-color: #c93400; }
-
-        /* Styles de la liste des descriptifs */
-        .descriptif-item {
-            background: #f5f5f7;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            font-size: 14px;
+        .error { color: #ff3b30; font-weight: 600; }
+        .icone-voiture {
+            font-size: 26px; line-height: 36px; text-align: center;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
         }
-        .descriptif-nom { font-weight: 600; color: #1d1d1f; margin-bottom: 6px; word-break: break-word; }
-        .descriptif-row { display: flex; align-items: center; gap: 10px; }
-        .descriptif-texte { flex: 1; color: #86868b; font-size: 13px; word-break: break-word; }
-        .btn-edit {
-            background-color: #0071e3;
-            color: white;
-            padding: 6px 16px;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            flex-shrink: 0;
+        /* ---- Historique ---- */
+        .histo-titre {
+            display: none; margin-top: 22px; margin-bottom: 8px;
+            font-size: 16px; font-weight: 700; text-align: left;
         }
-        .btn-edit:active { background-color: #005bb5; }
+        .histo-item {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; text-align: left;
+            background: #f5f5f7; border-radius: 10px;
+            padding: 10px 12px; margin-bottom: 8px;
+            border: 2px solid transparent;
+        }
+        .histo-item.actif { border-color: #007aff; }
+        .histo-info { display: flex; flex-direction: column; overflow: hidden; }
+        .histo-date { font-size: 13px; color: #86868b; }
+        .histo-lieu { font-size: 14px; font-weight: 600; }
+        .histo-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .mini {
+            width: auto; padding: 8px 10px; font-size: 13px; border-radius: 8px;
+        }
+        .mini.voir { background: #007aff; }
+        .mini.voir:active { background: #0051d5; }
+        .mini.suppr { background: #ff3b30; }
+        .mini.suppr:active { background: #c1271d; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>🚀 Le Déployeur</h1>
-
-    <!-- 1. CONFIGURATION GITHUB -->
     <div class="card">
-        <h2>1. Connexion GitHub</h2>
-        <label for="gh-user">Nom d'utilisateur GitHub</label>
-        <input type="text" id="gh-user" placeholder="Ex: henritavernier">
-        
-        <label for="gh-token">Token d'accès personnel (PAT)</label>
-        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
-        <button class="btn" onclick="sauvegarderConfig()">Enregistrer les identifiants</button>
-        <button class="btn" onclick="ouvrirDepotsGithub()" style="background-color: #6e6e73; margin-top: 10px;">📂 Voir mes dépôts GitHub</button>
-        <button class="btn" onclick="chargerDescriptifs()" style="background-color: #5856d6; margin-top: 10px;">📝 Liste des descriptifs</button>
-        <div id="descriptifs-list" style="margin-top: 15px;"></div>
+        <h1>Où suis-je ?</h1>
+        <p>Clique sur le bouton pour afficher la carte en direct.</p>
+        <button onclick="trouverPosition()">Ma Position Actuelle</button>
+        <button class="btn-voiture" onclick="memoriserVoiture()">🚗 Je suis garé ici</button>
+
+        <div class="nav-row">
+            <button class="btn-nav" onclick="allerMaPosition()">📍 Ma position</button>
+            <button class="btn-nav" onclick="allerVoiture()">🚗 Ma voiture</button>
+        </div>
+
+        <div id="statut-voiture" class="statut"></div>
+        <div id="distance" class="distance"></div>
+        <div id="bloc-info" class="info"></div>
+        <div id="map"></div>
+
+        <div id="histo-titre" class="histo-titre">🅿️ Historique des stationnements</div>
+        <div id="historique"></div>
     </div>
 
-    <!-- 2. GESTION DES APPLICATIONS CIBLES -->
-    <div class="card">
-        <h2>2. Gestion des Applications Cibles</h2>
-        <div id="target-list"></div>
-        <hr style="border: 0; border-top: 1px solid #e5e5ea; margin: 15px 0;">
-        <label for="new-target-name">Nom de l'application (Affichage)</label>
-        <input type="text" id="new-target-name" placeholder="Ex: Ma Super Boussole">
-        <label for="new-target-repo">Nom du dépôt sur GitHub</label>
-        <input type="text" id="new-target-repo" placeholder="Ex: boussole">
-        <button class="btn btn-secondary" onclick="ajouterCible()">Ajouter cette cible</button>
-    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- 3. ZONE DE DÉPLOIEMENT -->
-    <div class="card">
-        <h2>3. Déploiement de Code</h2>
-        <label for="select-target">Choisir l'application à mettre à jour</label>
-        <select id="select-target"></select>
+    <script>
+        let carte = null;
+        let marqueur = null;         // "Tu es ici"
+        let marqueurVoiture = null;  // Voiture affichée
 
-        <label for="html-code">Colle le nouveau code HTML ici</label>
-        <textarea id="html-code" placeholder="<!DOCTYPE html>..."></textarea>
+        let historique = [];         // [{ id, lat, lon, adresse, date }]
+        let idSelection = null;      // id de l'entrée montrée par l'icône voiture
 
-        <label for="commit-comment">Commentaire de version (obligatoire)</label>
-        <input type="text" id="commit-comment" placeholder="Ex : Ajout du bouton de partage">
+        const CLE_HISTO   = 'historiqueVoiture';
+        const CLE_ANCIENNE = 'positionVoiture';  // ancienne clé (mono-position)
 
-        <button class="btn" onclick="deployerCode()" style="background-color: #5856d6;">Mettre à jour sur GitHub</button>
-    </div>
+        const OPTIONS_GEO = { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 };
 
-    <!-- 4. HISTORIQUE & RESTAURATION -->
-    <div class="card">
-        <h2>4. Historique &amp; Restauration</h2>
-        <label for="select-history-target">Application concernée</label>
-        <select id="select-history-target"></select>
+        const iconeVoiture = L.divIcon({
+            html: '🚗', className: 'icone-voiture',
+            iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
+        });
 
-        <button class="btn" id="btn-history" onclick="chargerHistorique()" style="background-color: #ff9500;">Charger l'historique</button>
-
-        <div id="history-list" style="margin-top: 15px;"></div>
-    </div>
-
-    <!-- ZONE DE STATUS -->
-    <div id="status-box" class="status"></div>
-</div>
-
-<script>
-    // Chargement initial des données stockées sur l'iPhone
-    let config = JSON.parse(localStorage.getItem('deployer_config')) || { user: '', token: '' };
-    let cibles = JSON.parse(localStorage.getItem('deployer_cibles')) || [];
-
-    document.getElementById('gh-user').value = config.user;
-    document.getElementById('gh-token').value = config.token;
-
-    function afficherMessage(texte, type) {
-        const box = document.getElementById('status-box');
-        box.style.display = 'block';
-        box.className = 'status ' + type;
-        box.textContent = texte;
-        // On amène le message à l'écran, sinon il reste invisible tout en bas de la page
-        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function sauvegarderConfig() {
-        config.user = document.getElementById('gh-user').value.trim();
-        config.token = document.getElementById('gh-token').value.trim();
-        localStorage.setItem('deployer_config', JSON.stringify(config));
-        afficherMessage("Identifiants enregistrés localement avec succès !", "success");
-    }
-
-    // Ouvre la page GitHub listant tous les dépôts du compte
-    function ouvrirDepotsGithub() {
-        const user = document.getElementById('gh-user').value.trim();
-        if(!user) {
-            afficherMessage("Renseigne d'abord ton nom d'utilisateur GitHub ci-dessus.", "error");
-            document.getElementById('gh-user').focus();
-            return;
-        }
-        window.open(`https://github.com/${user}?tab=repositories`, '_blank');
-    }
-
-    // ---------- LISTE & ÉDITION DES DESCRIPTIFS ----------
-
-    // Récupère tous les dépôts du compte et affiche leur descriptif
-    async function chargerDescriptifs() {
-        const listDiv = document.getElementById('descriptifs-list');
-
-        // IMPORTANT : tout le retour (chargement / erreur / résultat) s'affiche ICI,
-        // juste sous le bouton, et PAS dans la zone de statut tout en bas de la page.
-        if(!config.user || !config.token) {
-            listDiv.innerHTML = "<p style='color:#c62828; font-size:14px; font-weight:600;'>⛔ Renseigne d'abord ton nom d'utilisateur et ton token à l'étape 1.</p>";
-            listDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            return;
+        // ---------- Utilitaires ----------
+        function echapper(s) {
+            const d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
         }
 
-        listDiv.innerHTML = "<p style='color:#86868b; font-size:14px;'>Chargement des dépôts…</p>";
-        listDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        function formaterDistance(m) {
+            if (m < 1000) return Math.round(m) + " m";
+            return (m / 1000).toFixed(2).replace('.', ',') + " km";
+        }
 
-        try {
-            // On récupère tous les dépôts dont on est propriétaire (avec pagination)
-            let repos = [];
-            let page = 1;
-            const parPage = 100;
-            while (true) {
-                const url = `https://api.github.com/user/repos?per_page=${parPage}&page=${page}&affiliation=owner&sort=full_name`;
-                const reponse = await fetch(url, { headers: headersGitHub() });
-                if (!reponse.ok) {
-                    let detail = `${reponse.status} ${reponse.statusText}`;
-                    try { const e = await reponse.json(); if (e && e.message) detail = e.message; } catch (_) {}
-                    listDiv.innerHTML =
-                        `<p style='color:#c62828; font-size:14px; font-weight:600; margin-top:0;'>Erreur GitHub : ${detail}</p>` +
-                        `<p style='color:#86868b; font-size:13px;'>Vérifie que ton token est valide et possède la portée <strong>repo</strong> (token classique) ou la permission <strong>Metadata + Administration</strong> en écriture (token fine-grained).</p>`;
-                    return;
+        function formaterDate(iso) {
+            const d = new Date(iso);
+            return d.toLocaleString('fr-FR', {
+                day: '2-digit', month: 'short',
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        // ---------- Stockage ----------
+        function sauverHistorique() {
+            try {
+                localStorage.setItem(CLE_HISTO, JSON.stringify(historique));
+            } catch (e) {
+                console.warn("Sauvegarde de l'historique impossible :", e);
+            }
+        }
+
+        function chargerHistorique() {
+            try {
+                const brut = localStorage.getItem(CLE_HISTO);
+                if (brut) {
+                    historique = JSON.parse(brut) || [];
+                } else {
+                    // Migration éventuelle depuis l'ancienne clé mono-position
+                    const ancien = localStorage.getItem(CLE_ANCIENNE);
+                    if (ancien) {
+                        const v = JSON.parse(ancien);
+                        historique = [{
+                            id: Date.now(), lat: v.lat, lon: v.lon,
+                            adresse: null, date: new Date().toISOString()
+                        }];
+                        sauverHistorique();
+                    }
                 }
-                const lot = await reponse.json();
-                repos = repos.concat(lot);
-                if (lot.length < parPage) break; // Dernière page atteinte
-                page++;
-                if (page > 10) break; // Sécurité (1000 dépôts max)
+            } catch (e) {
+                historique = [];
             }
+        }
 
-            if (repos.length === 0) {
-                listDiv.innerHTML = "<p style='color:#86868b; font-size:14px;'>Aucun dépôt trouvé.</p>";
+        // ---------- Carte ----------
+        function assurerCarte(lat, lon, zoom) {
+            const mapDiv = document.getElementById('map');
+            mapDiv.style.display = "block";
+            if (carte === null) {
+                carte = L.map('map').setView([lat, lon], zoom || 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(carte);
+            }
+            setTimeout(() => carte.invalidateSize(), 100);
+        }
+
+        // ---------- Ma position ----------
+        function trouverPosition() {
+            const blocInfo = document.getElementById('bloc-info');
+            blocInfo.style.display = "block";
+            blocInfo.innerHTML = "<em>Demande d'autorisation et calcul en cours...</em>";
+            if (!navigator.geolocation) {
+                blocInfo.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
                 return;
             }
-
-            listDiv.innerHTML =
-                `<p style='color:#2e7d32; font-size:13px; font-weight:600; margin-top:0;'>${repos.length} dépôt(s) chargé(s) — clique sur « Edit » pour modifier un descriptif.</p>`;
-            repos.forEach(repo => {
-                const item = document.createElement('div');
-                item.className = 'descriptif-item';
-                afficherDescriptifLecture(item, repo.name, repo.description);
-                listDiv.appendChild(item);
-            });
-        } catch (error) {
-            listDiv.innerHTML = `<p style='color:#c62828; font-size:14px; font-weight:600;'>Erreur réseau : ${error.message}</p>`;
-        }
-    }
-
-    // Affiche un dépôt en mode lecture (descriptif + bouton Edit)
-    function afficherDescriptifLecture(item, repoName, description) {
-        item.innerHTML = "";
-
-        const nom = document.createElement('div');
-        nom.className = 'descriptif-nom';
-        nom.textContent = repoName;
-
-        const row = document.createElement('div');
-        row.className = 'descriptif-row';
-
-        const desc = document.createElement('div');
-        desc.className = 'descriptif-texte';
-        if (description && description.trim()) {
-            desc.textContent = description;
-        } else {
-            desc.innerHTML = "<em style='color:#c7c7cc;'>(descriptif vide — clique sur Edit pour en ajouter un)</em>";
+            navigator.geolocation.getCurrentPosition(succes, erreur, OPTIONS_GEO);
         }
 
-        const btnEdit = document.createElement('button');
-        btnEdit.className = 'btn-edit';
-        btnEdit.textContent = "Edit";
-        btnEdit.addEventListener('click', () => afficherDescriptifEdition(item, repoName, description || ""));
+        function succes(position) {
+            const blocInfo = document.getElementById('bloc-info');
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const precision = position.coords.accuracy;
 
-        row.appendChild(desc);
-        row.appendChild(btnEdit);
-        item.appendChild(nom);
-        item.appendChild(row);
-    }
+            blocInfo.style.display = "block";
+            blocInfo.innerHTML = `
+                <strong>Latitude :</strong> ${lat.toFixed(6)}<br>
+                <strong>Longitude :</strong> ${lon.toFixed(6)}<br>
+                <strong>Précision :</strong> ~${Math.round(precision)} mètres
+                <div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>
+            `;
 
-    // Affiche un dépôt en mode édition (champ de saisie + Enregistrer / Annuler)
-    function afficherDescriptifEdition(item, repoName, descriptionActuelle) {
-        item.innerHTML = "";
+            assurerCarte(lat, lon, 16);
+            carte.setView([lat, lon], 16);
 
-        const nom = document.createElement('div');
-        nom.className = 'descriptif-nom';
-        nom.textContent = repoName;
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = descriptionActuelle;
-        input.placeholder = "Descriptif du dépôt";
-        input.style.marginBottom = '8px';
-
-        const actions = document.createElement('div');
-        actions.style.display = 'flex';
-        actions.style.gap = '8px';
-
-        const btnSave = document.createElement('button');
-        btnSave.className = 'btn-small btn-copy';
-        btnSave.textContent = "Enregistrer";
-
-        const btnCancel = document.createElement('button');
-        btnCancel.className = 'btn-small btn-view';
-        btnCancel.textContent = "Annuler";
-        btnCancel.addEventListener('click', () => afficherDescriptifLecture(item, repoName, descriptionActuelle));
-
-        btnSave.addEventListener('click', async () => {
-            const nouveau = input.value.trim();
-            btnSave.disabled = true;
-            btnCancel.disabled = true;
-            const ok = await enregistrerDescriptif(repoName, nouveau);
-            if (ok) {
-                afficherDescriptifLecture(item, repoName, nouveau);
+            if (marqueur === null) {
+                marqueur = L.marker([lat, lon]).addTo(carte);
             } else {
-                btnSave.disabled = false;
-                btnCancel.disabled = false;
+                marqueur.setLatLng([lat, lon]);
             }
-        });
+            marqueur.bindPopup('Tu es ici !').openPopup();
 
-        actions.appendChild(btnSave);
-        actions.appendChild(btnCancel);
-        item.appendChild(nom);
-        item.appendChild(input);
-        item.appendChild(actions);
-        input.focus();
-    }
+            trouverAdresse(lat, lon);
+            majDistance();
+        }
 
-    // Envoie le nouveau descriptif à GitHub (PATCH sur le dépôt)
-    async function enregistrerDescriptif(repoName, description) {
-        try {
-            const url = `https://api.github.com/repos/${config.user}/${repoName}`;
-            const reponse = await fetch(url, {
-                method: "PATCH",
-                headers: headersGitHub(),
-                body: JSON.stringify({ description: description })
-            });
-            if (reponse.ok) {
-                afficherMessage(`Descriptif de "${repoName}" mis à jour.`, "success");
-                return true;
+        // ---------- Voiture : entrée courante / affichage ----------
+        function entreeCourante() {
+            if (!historique.length) return null;
+            if (idSelection != null) {
+                const e = historique.find(x => x.id === idSelection);
+                if (e) return e;
+            }
+            return historique[historique.length - 1]; // la plus récente
+        }
+
+        function afficherVoiture(lat, lon) {
+            assurerCarte(lat, lon, 16);
+            if (marqueurVoiture === null) {
+                marqueurVoiture = L.marker([lat, lon], { icon: iconeVoiture }).addTo(carte);
             } else {
-                const errData = await reponse.json();
-                afficherMessage(`Échec de la mise à jour de "${repoName}" : ${errData.message || reponse.statusText}`, "error");
-                return false;
+                marqueurVoiture.setLatLng([lat, lon]);
             }
-        } catch (error) {
-            afficherMessage(`Erreur réseau : ${error.message}`, "error");
-            return false;
-        }
-    }
-
-    function rafraichirCiblesUI() {
-        const listDiv = document.getElementById('target-list');
-        const select = document.getElementById('select-target');
-        const selectHistory = document.getElementById('select-history-target');
-        
-        listDiv.innerHTML = cibles.length === 0 ? "<p style='color:#86868b; font-size:14px; margin:0;'>Aucune cible enregistrée.</p>" : "";
-        select.innerHTML = "";
-        selectHistory.innerHTML = "";
-
-        cibles.forEach((cible, index) => {
-            // Détermination dynamique de l'URL d'archivage sur GitHub
-            const repoUrl = `https://github.com/${config.user || ''}/${cible.repo}`;
-
-            // Remplir la liste de gestion avec le lien cliquable sur le nom
-            listDiv.innerHTML += `
-                <div class="target-item">
-                    <strong><a href="${repoUrl}" target="_blank" style="color: #0071e3; text-decoration: none;">${cible.name}</a></strong> (Dépôt : ${cible.repo})
-                    <button class="delete-btn" onclick="supprimerCible(${index})">Supprimer</button>
-                </div>`;
-            
-            // Remplir les deux menus déroulants (déploiement + historique)
-            [select, selectHistory].forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = cible.repo;
-                opt.textContent = cible.name;
-                s.appendChild(opt);
-            });
-        });
-    }
-
-    function ajouterCible() {
-        const name = document.getElementById('new-target-name').value.trim();
-        const repo = document.getElementById('new-target-repo').value.trim();
-
-        if(!name || !repo) {
-            afficherMessage("Veuillez remplir les deux champs de la cible.", "error");
-            return;
         }
 
-        cibles.push({ name: name, repo: repo });
-        localStorage.setItem('deployer_cibles', JSON.stringify(cibles));
-        rafraichirCiblesUI();
-
-        document.getElementById('new-target-name').value = "";
-        document.getElementById('new-target-repo').value = "";
-        afficherMessage(`Cible "${name}" ajoutée !`, "success");
-    }
-
-    function supprimerCible(index) {
-        cibles.splice(index, 1);
-        localStorage.setItem('deployer_cibles', JSON.stringify(cibles));
-        rafraichirCiblesUI();
-    }
-
-    // ---------- OUTILS COMMUNS ----------
-
-    function headersGitHub() {
-        return {
-            "Authorization": `token ${config.token}`,
-            "Accept": "application/vnd.github.v3+json"
-        };
-    }
-
-    // Encodage texte -> Base64 (gestion des accents et émojis)
-    function encoderBase64(texte) {
-        return btoa(unescape(encodeURIComponent(texte)));
-    }
-
-    // Décodage Base64 -> texte (l'API GitHub insère des sauts de ligne dans le Base64, on les retire)
-    function decoderBase64(b64) {
-        return decodeURIComponent(escape(atob(b64.replace(/\n/g, ''))));
-    }
-
-    function verifierConfig() {
-        if(!config.user || !config.token) {
-            afficherMessage("Erreur : Configure tes identifiants GitHub à l'étape 1 d'abord.", "error");
-            return false;
-        }
-        return true;
-    }
-
-    // ---------- DÉPLOIEMENT ----------
-
-    async function deployerCode() {
-        const repo = document.getElementById('select-target').value;
-        const code = document.getElementById('html-code').value;
-        const commentaire = document.getElementById('commit-comment').value.trim();
-
-        if(!verifierConfig()) return;
-        if(!repo) {
-            afficherMessage("Erreur : Ajoute et sélectionne une application cible à l'étape 2.", "error");
-            return;
-        }
-        if(!code.trim()) {
-            afficherMessage("Erreur : La zone de texte contenant le code HTML est vide.", "error");
-            return;
+        function popupVoiture(e) {
+            const lieu = e.adresse ? echapper(e.adresse)
+                                   : (e.lat.toFixed(5) + ', ' + e.lon.toFixed(5));
+            return `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`;
         }
 
-        // Le commentaire de version est OBLIGATOIRE : au moins 3 mots.
-        const nombreDeMots = commentaire.split(/\s+/).filter(m => m.length > 0).length;
-        if(nombreDeMots < 3) {
-            afficherMessage(
-                "⛔ COMMENTAIRE OBLIGATOIRE\n\n" +
-                "Impossible d'enregistrer cette version sans commentaire.\n\n" +
-                "Décris en quelques mots (au moins 3) ce que cette version change. " +
-                "Ce texte sera associé au commit et t'aidera à repérer la version plus tard dans l'historique.",
-                "error"
-            );
-            document.getElementById('commit-comment').focus();
-            return;
+        // Sélectionne une entrée : déplace l'icône voiture dessus + recentre
+        function selectionnerEntree(id) {
+            idSelection = id;
+            const e = entreeCourante();
+            if (!e) return;
+            afficherVoiture(e.lat, e.lon);
+            carte.setView([e.lat, e.lon], 17);
+            marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
+            majAffichageHistorique();
+            majDistance();
         }
 
-        afficherMessage("Vérification du fichier existant sur GitHub...", "success");
-
-        const url = `https://api.github.com/repos/${config.user}/${repo}/contents/index.html`;
-        let sha = null;
-
-        // Étape A : On cherche si index.html existe déjà pour obtenir son identifiant unique (SHA)
-        try {
-            const reponseCheck = await fetch(url, { headers: headersGitHub() });
-            if (reponseCheck.ok) {
-                const donneesFile = await reponseCheck.json();
-                sha = donneesFile.sha;
-            }
-        } catch (err) {
-            console.log("Nouveau fichier ou erreur de lecture", err);
-        }
-
-        // Étape B : Encodage propre du texte en Base64
-        const codeEncode = encoderBase64(code);
-
-        // Étape C : Envoi de la mise à jour (ou création)
-        // Le commentaire de version devient le message du commit.
-        const bodyPayload = {
-            message: commentaire,
-            content: codeEncode
-        };
-        if (sha) bodyPayload.sha = sha; // Obligatoire pour une mise à jour
-
-        try {
-            const reponsePut = await fetch(url, {
-                method: "PUT",
-                headers: headersGitHub(),
-                body: JSON.stringify(bodyPayload)
-            });
-
-            if (reponsePut.ok) {
-                afficherMessage("Félicitations ! Le code a été poussé sur GitHub.\nVotre application sera mise à jour sur votre iPhone d'ici 30 à 60 secondes.", "success");
-                document.getElementById('html-code').value = ""; // On vide la zone après succès
-                document.getElementById('commit-comment').value = ""; // On vide aussi le commentaire
-            } else {
-                const errData = await reponsePut.json();
-                afficherMessage(`Échec du déploiement : ${errData.message || reponsePut.statusText}`, "error");
-            }
-        } catch (error) {
-            afficherMessage(`Erreur réseau : ${error.message}`, "error");
-        }
-    }
-
-    // ---------- HISTORIQUE & RESTAURATION ----------
-
-    async function chargerHistorique() {
-        const repo = document.getElementById('select-history-target').value;
-        const listDiv = document.getElementById('history-list');
-        const btn = document.getElementById('btn-history');
-
-        if(!verifierConfig()) return;
-        if(!repo) {
-            afficherMessage("Erreur : Ajoute et sélectionne une application cible à l'étape 2.", "error");
-            return;
-        }
-
-        btn.disabled = true;
-        listDiv.innerHTML = "<p style='color:#86868b; font-size:14px;'>Chargement de l'historique...</p>";
-
-        // On récupère les 10 derniers commits qui ont touché index.html
-        const url = `https://api.github.com/repos/${config.user}/${repo}/commits?path=index.html&per_page=10`;
-
-        try {
-            const reponse = await fetch(url, { headers: headersGitHub() });
-            if (!reponse.ok) {
-                const errData = await reponse.json();
-                listDiv.innerHTML = "";
-                afficherMessage(`Impossible de charger l'historique : ${errData.message || reponse.statusText}`, "error");
-                btn.disabled = false;
+        // ---------- Enregistrer un stationnement ----------
+        function memoriserVoiture() {
+            const statut = document.getElementById('statut-voiture');
+            if (!navigator.geolocation) {
+                statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
                 return;
             }
+            statut.textContent = "Enregistrement de la position de la voiture…";
 
-            const commits = await reponse.json();
-            if (commits.length === 0) {
-                listDiv.innerHTML = "<p style='color:#86868b; font-size:14px;'>Aucune version trouvée pour index.html.</p>";
-                btn.disabled = false;
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                const adresse = await recupererAdresseCourte(lat, lon);
+
+                const entree = {
+                    id: Date.now(), lat, lon, adresse,
+                    date: new Date().toISOString()
+                };
+                historique.push(entree);
+                sauverHistorique();
+
+                idSelection = entree.id;
+                afficherVoiture(lat, lon);
+                carte.setView([lat, lon], 16);
+                marqueurVoiture.bindPopup(popupVoiture(entree));
+
+                statut.textContent = "🚗 Stationnement enregistré !";
+                majAffichageHistorique();
+                majDistance();
+            }, () => {
+                statut.innerHTML = "<span class='error'>Impossible de récupérer la position pour la voiture.</span>";
+            }, OPTIONS_GEO);
+        }
+
+        // ---------- Historique : affichage + suppression ----------
+        function majAffichageHistorique() {
+            const bloc = document.getElementById('historique');
+            const titre = document.getElementById('histo-titre');
+
+            if (!historique.length) {
+                bloc.innerHTML = '';
+                titre.style.display = 'none';
                 return;
             }
+            titre.style.display = 'block';
 
-            listDiv.innerHTML = "";
-            commits.forEach((commit, index) => {
-                const date = new Date(commit.commit.author.date);
-                const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                    + " à " + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                const msg = commit.commit.message;
-                const estActuelle = index === 0;
+            const courante = entreeCourante();
+            const idCourant = courante ? courante.id : null;
 
-                const item = document.createElement('div');
-                item.className = 'commit-item' + (estActuelle ? ' current' : '');
-                item.innerHTML = `
-                    <div class="commit-date">${dateStr}${estActuelle ? '<span class="commit-badge">Version actuelle</span>' : ''}</div>
-                    <div class="commit-msg">${msg}</div>
-                    <div class="commit-actions">
-                        <button class="btn-small btn-view">Voir</button>
-                        <button class="btn-small btn-copy">Copier</button>
-                        ${estActuelle ? '' : '<button class="btn-small btn-restore">Restaurer</button>'}
+            // Du plus récent au plus ancien
+            bloc.innerHTML = [...historique].reverse().map(e => {
+                const lieu = e.adresse ? echapper(e.adresse)
+                                       : (e.lat.toFixed(5) + ', ' + e.lon.toFixed(5));
+                const actif = (e.id === idCourant) ? ' actif' : '';
+                return `
+                    <div class="histo-item${actif}">
+                        <div class="histo-info">
+                            <span class="histo-date">${echapper(formaterDate(e.date))}</span>
+                            <span class="histo-lieu">${lieu}</span>
+                        </div>
+                        <div class="histo-actions">
+                            <button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button>
+                            <button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button>
+                        </div>
                     </div>`;
-
-                // On attache les actions sans passer par onclick="" pour éviter les soucis d'échappement
-                item.querySelector('.btn-view').addEventListener('click', () => voirVersion(repo, commit.sha, dateStr));
-                item.querySelector('.btn-copy').addEventListener('click', (e) => copierVersion(repo, commit.sha, dateStr, e.target));
-                const btnRestore = item.querySelector('.btn-restore');
-                if (btnRestore) {
-                    btnRestore.addEventListener('click', () => restaurerVersion(repo, commit.sha, dateStr));
-                }
-
-                listDiv.appendChild(item);
-            });
-        } catch (error) {
-            listDiv.innerHTML = "";
-            afficherMessage(`Erreur réseau : ${error.message}`, "error");
+            }).join('');
         }
 
-        btn.disabled = false;
-    }
+        function supprimerEntree(id) {
+            const e = historique.find(x => x.id === id);
+            const lieu = e && e.adresse ? e.adresse : "cette entrée";
+            if (!confirm("Supprimer « " + lieu + " » de l'historique ?")) return;
 
-    // Récupère le contenu d'index.html tel qu'il était à un commit donné
-    async function recupererContenuVersion(repo, commitSha) {
-        const url = `https://api.github.com/repos/${config.user}/${repo}/contents/index.html?ref=${commitSha}`;
-        const reponse = await fetch(url, { headers: headersGitHub() });
-        if (!reponse.ok) {
-            const errData = await reponse.json();
-            throw new Error(errData.message || reponse.statusText);
+            historique = historique.filter(x => x.id !== id);
+            sauverHistorique();
+
+            if (idSelection === id) idSelection = null;
+
+            const courante = entreeCourante();
+            if (courante) {
+                afficherVoiture(courante.lat, courante.lon);
+                if (marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante));
+            } else if (marqueurVoiture) {
+                carte.removeLayer(marqueurVoiture);
+                marqueurVoiture = null;
+            }
+
+            majAffichageHistorique();
+            majDistance();
         }
-        const donnees = await reponse.json();
-        return decoderBase64(donnees.content);
-    }
 
-    // Ouvre l'ancienne version dans un nouvel onglet pour vérification visuelle
-    async function voirVersion(repo, commitSha, dateStr) {
-        try {
-            afficherMessage(`Récupération de la version du ${dateStr}...`, "success");
-            const contenu = await recupererContenuVersion(repo, commitSha);
-            const blob = new Blob([contenu], { type: 'text/html' });
-            const blobUrl = URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
-            afficherMessage(`Aperçu de la version du ${dateStr} ouvert dans un nouvel onglet.`, "success");
-        } catch (error) {
-            afficherMessage(`Impossible d'afficher cette version : ${error.message}`, "error");
+        // ---------- Distance à vol d'oiseau ----------
+        function majDistance() {
+            const blocDist = document.getElementById('distance');
+            const e = entreeCourante();
+            if (marqueur === null || !e) { blocDist.textContent = ""; return; }
+            const p = marqueur.getLatLng();
+            const metres = L.latLng(p.lat, p.lng).distanceTo(L.latLng(e.lat, e.lon));
+            blocDist.textContent = "📏 Voiture à " + formaterDistance(metres) + " à vol d'oiseau";
         }
-    }
 
-    // Copie le code HTML d'une version dans le presse-papier
-    async function copierVersion(repo, commitSha, dateStr, bouton) {
-        try {
-            afficherMessage(`Récupération de la version du ${dateStr}...`, "success");
-            const contenu = await recupererContenuVersion(repo, commitSha);
+        // ---------- Navigation ----------
+        function allerVoiture() {
+            const statut = document.getElementById('statut-voiture');
+            if (!historique.length) {
+                statut.innerHTML = "<span class='error'>Aucun stationnement enregistré pour l'instant.</span>";
+                return;
+            }
+            idSelection = null; // => la plus récente
+            selectionnerEntree(historique[historique.length - 1].id);
+            statut.textContent = "🚗 Direction ta voiture.";
+        }
 
-            // Méthode moderne (nécessite HTTPS, ce qui est le cas sur github.io / Pages)
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(contenu);
+        function allerMaPosition() {
+            const statut = document.getElementById('statut-voiture');
+            if (marqueur !== null) {
+                const p = marqueur.getLatLng();
+                carte.setView([p.lat, p.lng], 17);
+                marqueur.openPopup();
+                statut.textContent = "📍 Recentré sur ta position.";
+                majDistance();
+                return;
+            }
+            if (!navigator.geolocation) {
+                statut.innerHTML = "<span class='error'>La géolocalisation n'est pas supportée.</span>";
+                return;
+            }
+            statut.textContent = "Localisation en cours…";
+            navigator.geolocation.getCurrentPosition((position) => {
+                succes(position);
+                statut.textContent = "";
+            }, erreur, OPTIONS_GEO);
+        }
+
+        // ---------- Adresse (reverse geocoding) ----------
+        async function recupererAdresseCourte(lat, lon) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=json`
+                          + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
+                const r = await fetch(url);
+                if (!r.ok) throw new Error("Réponse invalide");
+                const data = await r.json();
+                const a = data.address || {};
+                const rue = [a.house_number, a.road || a.pedestrian || a.footway]
+                            .filter(Boolean).join(' ');
+                const ville = a.city || a.town || a.village || a.municipality || '';
+                return [rue, ville].filter(Boolean).join(', ') || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function trouverAdresse(lat, lon) {
+            const blocAdresse = document.getElementById('bloc-adresse');
+            if (!blocAdresse) return;
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json`
+                      + `&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=fr`;
+            try {
+                const reponse = await fetch(url);
+                if (!reponse.ok) throw new Error("Réponse invalide");
+                const data = await reponse.json();
+                const a = data.address || {};
+                const numero = a.house_number || '';
+                const rue    = a.road || a.pedestrian || a.footway || '';
+                const cp     = a.postcode || '';
+                const ville  = a.city || a.town || a.village || a.municipality || '';
+                const pays   = a.country || '';
+                const ligneRue = [numero, rue].filter(Boolean).join(' ');
+                const ligneVille = [cp, ville].filter(Boolean).join(' ');
+                blocAdresse.innerHTML = `
+                    <strong>Adresse :</strong><br>
+                    ${echapper(ligneRue) || '—'}<br>
+                    ${echapper(ligneVille) || ''}<br>
+                    ${echapper(pays) || ''}
+                `;
+            } catch (e) {
+                blocAdresse.innerHTML =
+                    "<span class='error'>Adresse introuvable pour le moment.</span>";
+            }
+        }
+
+        function erreur(err) {
+            const blocInfo = document.getElementById('bloc-info');
+            document.getElementById('map').style.display = "none";
+            blocInfo.style.display = "block";
+            if (err.code === err.PERMISSION_DENIED) {
+                blocInfo.innerHTML = "<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>";
             } else {
-                // Repli pour les contextes non sécurisés
-                const zone = document.createElement('textarea');
-                zone.value = contenu;
-                zone.style.position = 'fixed';
-                zone.style.opacity = '0';
-                document.body.appendChild(zone);
-                zone.focus();
-                zone.select();
-                document.execCommand('copy');
-                document.body.removeChild(zone);
+                blocInfo.innerHTML = "<span class='error'>Impossible d'obtenir une position précise.</span>";
             }
-
-            // Retour visuel sur le bouton lui-même
-            if (bouton) {
-                const texteOrigine = bouton.textContent;
-                bouton.textContent = "Copié ✓";
-                setTimeout(() => { bouton.textContent = texteOrigine; }, 1500);
-            }
-            afficherMessage(`Code de la version du ${dateStr} copié dans le presse-papier.`, "success");
-        } catch (error) {
-            afficherMessage(`Impossible de copier cette version : ${error.message}`, "error");
-        }
-    }
-
-    // Restaure une ancienne version : on crée un NOUVEAU commit avec l'ancien contenu.
-    // L'historique reste intact, on ne perd donc jamais rien.
-    async function restaurerVersion(repo, commitSha, dateStr) {
-        if (!confirm(`Restaurer la version du ${dateStr} ?\n\nLa version actuelle restera dans l'historique, tu pourras y revenir.`)) {
-            return;
         }
 
-        try {
-            afficherMessage("Restauration en cours...", "success");
-
-            // 1. On récupère l'ancien contenu
-            const ancienContenu = await recupererContenuVersion(repo, commitSha);
-
-            // 2. On récupère le SHA du fichier actuel (obligatoire pour la mise à jour)
-            const urlActuel = `https://api.github.com/repos/${config.user}/${repo}/contents/index.html`;
-            const reponseActuel = await fetch(urlActuel, { headers: headersGitHub() });
-            if (!reponseActuel.ok) throw new Error("Impossible de lire le fichier actuel.");
-            const fichierActuel = await reponseActuel.json();
-
-            // 3. On pousse l'ancien contenu comme nouveau commit
-            const reponsePut = await fetch(urlActuel, {
-                method: "PUT",
-                headers: headersGitHub(),
-                body: JSON.stringify({
-                    message: `Restauration de la version du ${dateStr} via Le Déployeur`,
-                    content: encoderBase64(ancienContenu),
-                    sha: fichierActuel.sha
-                })
-            });
-
-            if (reponsePut.ok) {
-                afficherMessage(`Version du ${dateStr} restaurée !\nVotre application sera mise à jour d'ici 30 à 60 secondes.`, "success");
-                chargerHistorique(); // On rafraîchit la liste pour voir le nouveau commit de restauration
-            } else {
-                const errData = await reponsePut.json();
-                afficherMessage(`Échec de la restauration : ${errData.message || reponsePut.statusText}`, "error");
+        // ---------- Au lancement ----------
+        window.addEventListener('load', () => {
+            chargerHistorique();
+            majAffichageHistorique();
+            const e = entreeCourante();
+            if (e) {
+                const statut = document.getElementById('statut-voiture');
+                statut.textContent = "🚗 Dernier stationnement mémorisé.";
+                afficherVoiture(e.lat, e.lon);
+                carte.setView([e.lat, e.lon], 16);
+                marqueurVoiture.bindPopup(popupVoiture(e));
             }
-        } catch (error) {
-            afficherMessage(`Erreur pendant la restauration : ${error.message}`, "error");
-        }
-    }
-
-    // Initialisation au chargement de la page
-    rafraichirCiblesUI();
-</script>
+        });
+    </script>
 
 </body>
 </html>
