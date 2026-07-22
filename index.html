@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.12.0</title>
+    <title>Ma Géolocalisation — v1.13.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -204,7 +204,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.12.0';
+        const VERSION = '1.13.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -221,6 +221,7 @@
         let coucheParcours = null, parcoursVisible = false;   // calque des pastilles + trait chronologique
         let historique = [];
         let idSelection = null;
+        let idNoteVisible = null;   // note affichée à l'unité via « Voir » (hors mode trajet)
         let modeCorrection = false;      // le marqueur voiture n'est déplaçable QUE dans ce mode
         let posAvantCorrection = null;   // {lat,lon} pour pouvoir annuler
         let idCorrection = null;         // id de l'entrée en cours de correction
@@ -585,6 +586,7 @@
 
         // ================= Ma position =================
         function trouverPosition(){
+            masquerNoteSelective();
             const b=document.getElementById('bloc-info'); b.style.display="block"; b.innerHTML="<em>Demande d'autorisation et calcul en cours...</em>";
             if(!navigator.geolocation){ b.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             navigator.geolocation.getCurrentPosition(succes, erreur, OPTIONS_GEO);
@@ -625,8 +627,18 @@
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
             majAffichageHistorique(); majDistance();
         }
+        // « Voir » : sélectionne l'entrée ET révèle sa note (à l'unité)
+        function voirEntree(id){
+            idNoteVisible=id;
+            selectionnerEntree(id);   // re-rend la liste : la note de cette entrée apparaît
+        }
+        // Referme la note affichée à l'unité dès qu'on passe à autre chose
+        function masquerNoteSelective(){
+            if(idNoteVisible!==null){ idNoteVisible=null; majAffichageHistorique(); }
+        }
 
         function memoriserVoiture(){
+            idNoteVisible=null;
             const statut=document.getElementById('statut-voiture');
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             statut.textContent="Enregistrement de la position de la voiture…";
@@ -666,7 +678,7 @@
             statut.textContent="Enregistrement…"; statut.style.color='#007aff';
             const adresse=await recupererAdresseCourte(lat,lon);
             const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
-            historique.push(entree); idSelection=entree.id;
+            historique.push(entree); idSelection=entree.id; idNoteVisible=null;
             afficherVoiture(lat,lon); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
             const lieu=adresse?echapper(adresse):(lat.toFixed(5)+', '+lon.toFixed(5));
             statut.innerHTML="✅ Stationnement ajouté : "+lieu; statut.style.color='#34c759';
@@ -697,10 +709,10 @@
                 const pastille = parcoursVisible
                     ? `<div class="pastille-parcours${e.id===idDerniere?' derniere':''}">${numeroParId.get(e.id)}</div>`
                     : '';
-                const noteZone = parcoursVisible
+                const noteZone = (parcoursVisible || e.id===idNoteVisible)
                     ? `<div class="note-zone" contenteditable="false" data-placeholder="Double-cliquez pour écrire une note…" ondblclick="activerNote(this)" onblur="sauverNote(this, ${e.id})" onkeydown="toucheNote(event, this)">${echapper(e.note)}</div>`
                     : '';
-                return `<div class="histo-item${actif}"><div class="histo-ligne"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>${noteZone}</div>`;
+                return `<div class="histo-item${actif}"><div class="histo-ligne"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir" onclick="voirEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>${noteZone}</div>`;
             }).join('');
             rafraichirParcours();
         }
@@ -738,6 +750,7 @@
             if(modeCorrection && id===idCorrection) quitterModeCorrection();
             historique=historique.filter(x=>x.id!==id);
             if(idSelection===id) idSelection=null;
+            if(idNoteVisible===id) idNoteVisible=null;
             const courante=entreeCourante();
             if(courante){ afficherVoiture(courante.lat,courante.lon); if(marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante)); }
             else if(marqueurVoiture){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
@@ -766,10 +779,12 @@
         function allerVoiture(){
             const statut=document.getElementById('statut-voiture');
             if(!historique.length){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
+            idNoteVisible=null;
             idSelection=null; selectionnerEntree(historique[historique.length-1].id);
             statut.textContent="🚗 Direction ta voiture.";
         }
         function allerMaPosition(){
+            masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
             if(marqueur!==null){ const p=marqueur.getLatLng(); carte.setView([p.lat,p.lng],17); marqueur.openPopup(); statut.textContent="📍 Recentré sur ta position."; majDistance(); return; }
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
@@ -778,6 +793,7 @@
         }
         // Cadre la carte pour montrer ta position ET la voiture en même temps
         function voirLesDeux(){
+            masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
             const e=entreeCourante();
             if(marqueur===null && !e){ statut.innerHTML="<span class='error'>Rien à afficher : localise-toi et enregistre un stationnement.</span>"; return; }
@@ -798,6 +814,7 @@
 
         function basculerCorrection(){
             if(modeCorrection){ annulerCorrection(); return; }   // re-clic = sortie sans enregistrer
+            masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
             const e=entreeCourante();
             if(!e){ statut.innerHTML="<span class='error'>Aucun stationnement à corriger. Enregistre-en un d'abord.</span>"; return; }
@@ -905,6 +922,7 @@
             if(coucheParcours){ carte.removeLayer(coucheParcours); coucheParcours=null; }
         }
         function basculerParcours(){
+            idNoteVisible=null;
             const btn=document.getElementById('btn-parcours');
             const statut=document.getElementById('statut-voiture');
             if(parcoursVisible){
@@ -925,6 +943,7 @@
 
         // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
         function itineraireVersVoiture(){
+            masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
             const e=entreeCourante();
             if(!e){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
