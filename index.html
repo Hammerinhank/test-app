@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.22.0</title>
+    <title>Ma Géolocalisation — v1.23.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -249,7 +249,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.22.0';
+        const VERSION = '1.23.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -799,12 +799,34 @@
             // nettoie l'URL tout de suite pour ne pas recréer l'entrée à un rechargement
             try { history.replaceState(null, '', window.location.pathname); } catch(e){}
 
-            if(!brut){
-                banniereParking('err',
-                    "❌ Aucune coordonnée reçue dans l'URL (paramètre « parking » vide).\n"+
-                    "→ Le raccourci a bien ouvert l'appli, mais l'URL ne contenait pas les coordonnées. Dans Raccourcis, vérifie que l'action « Texte » insère bien les variables Latitude et Longitude, par ex. …?parking=48.2580226,7.4589611");
+            // Mode « auto » : l'appli récupère elle-même la position (raccourci = simple ouverture de l'URL)
+            if(!brut || brut.toLowerCase()==='auto' || brut==='1'){
+                if(!navigator.geolocation){
+                    banniereParking('err', "❌ Localisation impossible : la géolocalisation n'est pas supportée sur cet appareil.");
+                    return;
+                }
+                banniereParking('info', "📍 Enregistrement du stationnement à ta position actuelle…");
+                navigator.geolocation.getCurrentPosition(async (pos)=>{
+                    let date=new Date();
+                    if(tParam){ const n=Number(tParam); const d=isFinite(n)?new Date(n):new Date(tParam); if(!isNaN(d.getTime())) date=d; }
+                    try{
+                        const r = await ajouterStationnementDetecte(pos.coords.latitude, pos.coords.longitude, date);
+                        if(!r.ok && r.raison==='doublon'){
+                            banniereParking('info', "ℹ️ Un stationnement existe déjà à moins de 60 m : rien ajouté (anti-doublon).\n→ Normal si le raccourci s'est déclenché deux fois.");
+                            return;
+                        }
+                        banniereParking('ok', "✅ Stationnement enregistré à ta position : "+r.lieu+".\n"+
+                            (configComplete() ? "Sauvegardé en local et synchronisé sur GitHub." : "Sauvegardé en local (GitHub non configuré)."));
+                    }catch(e){ banniereParking('err', "⚠️ Position obtenue, mais l'enregistrement a échoué.\n"+messageErreur(e)); }
+                }, (err)=>{
+                    banniereParking('err',
+                        (err && err.code===err.PERMISSION_DENIED)
+                          ? "❌ Localisation refusée.\n→ Autorise la localisation pour ce site (Réglages iOS ou la fenêtre d'autorisation), puis relance le raccourci."
+                          : "❌ Impossible d'obtenir ta position (signal GPS faible ?).\n→ Réessaie, de préférence en extérieur.");
+                }, OPTIONS_GEO);
                 return;
             }
+
             const res = analyserCoordonnees(brut);
             if(!res){
                 banniereParking('err',
