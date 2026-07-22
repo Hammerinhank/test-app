@@ -233,12 +233,11 @@
             <button class="btn-voiture" onclick="simulerShortcut()">Simuler avec ma position actuelle</button>
             <div id="sim-statut" class="parking-url-statut"></div>
             <div class="aide">
-                Ce bouton fait ce que fera le raccourci : il prend ta position actuelle et construit l'URL
-                <code>?parking=…</code>. Le fichier publié doit s'appeler exactement <code>localisation.html</code>
-                (à la racine du dépôt) ; l'URL visée est donc de la forme
-                <code>https://…github.io/localisation.html?parking=…</code>. Si un token GitHub est configuré,
-                le bouton vérifie que la page est bien <strong>publiée</strong> (GitHub Pages) et, sinon, tente de
-                l'activer automatiquement — ou t'explique exactement quoi faire si le token n'a pas la permission.
+                Ce bouton fait tout en une fois : il <strong>publie cette page</strong> dans ton dépôt sous le
+                nom <code>localisation.html</code> (il le crée s'il n'existe pas, via ton token GitHub),
+                s'assure que <strong>GitHub Pages</strong> est activé, puis construit l'URL de test
+                <code>?parking=…</code> avec ta position actuelle — celle que ton raccourci devra ouvrir.
+                Un token GitHub (section Synchronisation) est requis pour la publication.
             </div>
         </details>
 
@@ -862,73 +861,105 @@
             // rafraîchit dépôt + token depuis les champs (au cas où ils viennent d'être modifiés)
             try { const p=parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; } catch(e){}
             token = document.getElementById('gh-token').value.trim() || token;
-            afficherBanniereSim('info', "📍 Récupération de ta position pour simuler le raccourci…");
+            afficherBanniereSim('info', "📍 Récupération de ta position…");
             if(!navigator.geolocation){ afficherBanniereSim('err', "❌ La géolocalisation n'est pas supportée sur cet appareil."); return; }
             navigator.geolocation.getCurrentPosition(async (pos)=>{
                 const lat=pos.coords.latitude.toFixed(7), lon=pos.coords.longitude.toFixed(7);
-                const urlTest = urlPubliee() + '?parking=' + lat + ',' + lon;
-                if(token){
-                    await diagnostiquerPages(urlTest, lat, lon);
-                } else {
+                if(!token){
+                    // Sans token : on ne peut pas publier ; on fait au moins la simulation locale
                     afficherBanniereSim('info',
-                        "ℹ️ Aucun token GitHub configuré : impossible de vérifier la publication.\n"+
-                        "Voici l'URL que ton raccourci devra ouvrir :\n"+lienCliquable(urlTest)+"\n\n"+
-                        "Je lance quand même la simulation en local (le stationnement de test va être créé)…");
-                    setTimeout(()=>{ window.location.href = window.location.pathname + '?parking=' + lat + ',' + lon; }, 1500);
+                        "ℹ️ Aucun token GitHub configuré : impossible de publier la page.\n"+
+                        "→ Renseigne un token dans la section Synchronisation pour la publication automatique.\n\n"+
+                        "Je lance quand même la simulation en local (un stationnement de test va être créé)…");
+                    setTimeout(()=>{ window.location.href = window.location.pathname + '?parking=' + lat + ',' + lon; }, 1600);
+                    return;
                 }
+                // 1) Publier / créer localisation.html dans le dépôt
+                afficherBanniereSim('info', "📤 Publication de "+FICHIER_PUBLIE+" dans "+echapper(ghUser+'/'+ghRepo)+"…");
+                const pub = await publierPage();
+                if(!pub.ok){ afficherBanniereSim('err', pub.message); return; }
+                // 2) S'assurer que GitHub Pages est actif, puis 3) donner l'URL de test
+                const urlTest = urlPubliee() + '?parking=' + lat + ',' + lon;
+                await finaliserApresPublication(urlTest, pub.action);
             }, ()=>{ afficherBanniereSim('err', "❌ Impossible d'obtenir ta position.\n→ Autorise la localisation pour ce site, puis réessaie."); }, OPTIONS_GEO);
         }
-        async function diagnostiquerPages(urlTest, lat, lon){
-            afficherBanniereSim('info', "🌐 Vérification de la publication GitHub Pages…\nDépôt : "+echapper(ghUser+'/'+ghRepo));
+
+        // Écrit (ou crée) le fichier localisation.html dans le dépôt, avec le code de la page courante
+        async function publierPage(){
+            let src;
+            try {
+                const r = await fetch(window.location.href, { cache:'no-store' });
+                src = await r.text();
+            } catch(e){
+                return { ok:false, message:"❌ Impossible de lire le code de cette page pour la publier (contexte non supporté).\n→ Ouvre la page depuis une adresse http(s), pas un fichier local ; ou dépose "+FICHIER_PUBLIE+" manuellement une fois." };
+            }
+            if(!/<html[\s>]/i.test(src) || src.indexOf('parking=')===-1){
+                return { ok:false, message:"❌ Le contenu récupéré ne ressemble pas au code de l'appli — publication annulée par sécurité." };
+            }
+            const apiUrl = 'https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/contents/'+FICHIER_PUBLIE;
+            let sha=null, existe=false;
+            try {
+                const g = await fetch(apiUrl+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(),
+                    { headers:{ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json' } });
+                if(g.status===200){ const d=await g.json(); sha=d.sha; existe=true; }
+                else if(g.status!==404){ throw await erreurHttp(g); }
+            } catch(e){ return { ok:false, message:messageErreur(e) }; }
+            const contenu = b64FromBytes(new TextEncoder().encode(src));
+            const corps = { message:(existe?'Mise à jour':'Création')+' de '+FICHIER_PUBLIE, content: contenu, branch: branche };
+            if(sha) corps.sha = sha;
+            try {
+                const p = await fetch(apiUrl, { method:'PUT',
+                    headers:{ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+                    body: JSON.stringify(corps) });
+                if(!p.ok) throw await erreurHttp(p);
+                return { ok:true, action: existe?'maj':'creation' };
+            } catch(e){ return { ok:false, message:messageErreur(e) }; }
+        }
+
+        // Vérifie / active GitHub Pages, puis affiche l'URL de test cliquable
+        async function finaliserApresPublication(urlTest, action){
+            const acte = (action==='creation') ? "créé" : "mis à jour";
             const enttes = { 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json' };
             const urlReglages = 'https://github.com/'+encodeURIComponent(ghUser)+'/'+encodeURIComponent(ghRepo)+'/settings/pages';
             try{
                 const r = await fetch('https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/pages', { headers: enttes });
                 if(r.status===200){
-                    const data = await r.json();
-                    const site = data.html_url || urlPubliee();
                     afficherBanniereSim('ok',
-                        "✅ GitHub Pages est activé.\nSite publié : "+lienCliquable(site)+"\n\n"+
-                        "Touche l'URL de test ci-dessous pour vérifier le raccourci de bout en bout :\n"+lienCliquable(urlTest));
-                    return;
-                }
-                if(r.status===401){
-                    afficherBanniereSim('err', "❌ Token refusé (401).\n→ Régénère puis recolle ton token dans la section Synchronisation, et réessaie.");
+                        "✅ Fichier "+FICHIER_PUBLIE+" "+acte+" et GitHub Pages actif.\n"+
+                        (action==='creation' ? "La toute première mise en ligne peut prendre 1 à 2 minutes.\n\n" : "\n")+
+                        "Touche l'URL de test pour vérifier le raccourci de bout en bout :\n"+lienCliquable(urlTest));
                     return;
                 }
                 if(r.status===404){
-                    afficherBanniereSim('info', "GitHub Pages n'est pas encore activé pour ce dépôt.\nTentative d'activation automatique…");
                     const rp = await fetch('https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/pages', {
                         method:'POST', headers:{ ...enttes, 'Content-Type':'application/json' },
-                        body: JSON.stringify({ source:{ branch: branche, path: '/' } })
-                    });
+                        body: JSON.stringify({ source:{ branch: branche, path: '/' } }) });
                     if(rp.status===201){
                         afficherBanniereSim('ok',
-                            "✅ Je viens d'activer GitHub Pages pour "+echapper(ghUser+'/'+ghRepo)+" (branche « "+echapper(branche)+" »).\n"+
-                            "La première publication prend 1 à 2 minutes. Patiente, puis touche :\n"+lienCliquable(urlTest));
+                            "✅ Fichier "+acte+" et GitHub Pages que je viens d'activer (branche « "+echapper(branche)+" »).\n"+
+                            "La première publication prend 1 à 2 minutes. Ensuite, touche :\n"+lienCliquable(urlTest));
                         return;
                     }
                     if(rp.status===403){
-                        afficherBanniereSim('err',
-                            "❌ Activation impossible : ton token n'a pas la permission « Pages » (403).\n"+
-                            "→ Active-le à la main : ouvre "+lienCliquable(urlReglages)+"\n"+
-                            "puis « Deploy from a branch » → Branch : "+echapper(branche)+" /(root) → Save. Attends 1-2 min et re-teste.");
+                        afficherBanniereSim('info',
+                            "✅ Fichier "+acte+", mais je n'ai pas pu activer GitHub Pages (permission « Pages » manquante, 403).\n"+
+                            "→ Active-le une seule fois ici : "+lienCliquable(urlReglages)+"\n"+
+                            "« Deploy from a branch » → Branch : "+echapper(branche)+" /(root) → Save. Puis touche : "+lienCliquable(urlTest));
                         return;
                     }
                     let msg=''; try{ msg=(await rp.json()).message||''; }catch(e){}
-                    afficherBanniereSim('err',
-                        "❌ Activation impossible (code "+rp.status+(msg?" – "+echapper(msg):"")+").\n"+
-                        "→ Active GitHub Pages à la main : "+lienCliquable(urlReglages));
+                    afficherBanniereSim('info',
+                        "✅ Fichier "+acte+", mais activation de Pages impossible (code "+rp.status+(msg?" – "+echapper(msg):"")+").\n"+
+                        "→ Active-le à la main : "+lienCliquable(urlReglages));
                     return;
                 }
-                let msg=''; try{ msg=(await r.json()).message||''; }catch(e){}
-                afficherBanniereSim('err',
-                    "❌ Vérification impossible (code "+r.status+(msg?" – "+echapper(msg):"")+").\n"+
-                    "→ Tu peux tout de même tester l'URL manuellement :\n"+lienCliquable(urlTest));
+                if(r.status===401){
+                    afficherBanniereSim('info', "✅ Fichier "+acte+", mais le token est refusé pour vérifier Pages (401).\n→ Vérifie ton token, puis teste : "+lienCliquable(urlTest));
+                    return;
+                }
+                afficherBanniereSim('ok', "✅ Fichier "+acte+".\nURL de test :\n"+lienCliquable(urlTest));
             }catch(e){
-                afficherBanniereSim('err',
-                    "❌ Impossible de joindre GitHub pour vérifier la publication (problème réseau ?).\n"+
-                    "URL à tester manuellement :\n"+lienCliquable(urlTest));
+                afficherBanniereSim('ok', "✅ Fichier "+acte+", mais vérification de Pages impossible (réseau ?).\nURL de test :\n"+lienCliquable(urlTest));
             }
         }
 
