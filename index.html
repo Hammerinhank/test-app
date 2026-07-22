@@ -454,10 +454,11 @@
         function assurerCarte(lat, lon, zoom){
             const mapDiv=document.getElementById('map'); mapDiv.style.display="block";
             if (carte===null){
-                // doubleClickZoom désactivé : le double-clic sert au plein écran (voir basculerPleinEcran)
+                // doubleClickZoom désactivé : le double-clic/tap sert au plein écran (voir basculerPleinEcran)
                 carte=L.map('map',{doubleClickZoom:false}).setView([lat,lon],zoom||16);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(carte);
-                carte.on('dblclick', basculerPleinEcran);
+                carte.on('dblclick', basculerPleinEcran);          // souris (ordinateur)
+                installerDoubleTap(carte.getContainer());          // tactile (iPhone/Android)
             }
             setTimeout(()=>carte.invalidateSize(),100);
         }
