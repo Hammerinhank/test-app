@@ -86,6 +86,14 @@
         .mode-stockage { margin-top: 10px; font-size: 13px; font-weight: 600; color: #34c759; text-align: center; }
         #btn-corriger.actif { background: #ff9500; color: white; }
         #btn-corriger.actif:active { background: #cc7700; }
+        #btn-parcours.actif { background: #007aff; color: white; }
+        #btn-parcours.actif:active { background: #0051d5; }
+        .pastille-parcours {
+            width: 24px; height: 24px; border-radius: 50%; background: #007aff; color: #fff;
+            font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+            border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .pastille-parcours.derniere { background: #34c759; }
         .correction { display: none; margin-top: 12px; padding: 14px; background: #fff8ec; border: 2px solid #ff9500; border-radius: 12px; }
         .correction.ouvert { display: block; }
         .correction-txt { font-size: 13px; font-weight: 600; color: #1d1d1f; line-height: 1.5; text-align: left; margin-bottom: 12px; white-space: pre-line; }
@@ -115,6 +123,8 @@
         </div>
 
         <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
+
+        <button id="btn-parcours" class="btn-gris" onclick="basculerParcours()">🗺️ Afficher tous les stationnements</button>
 
         <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
         <div id="panneau-correction" class="correction">
@@ -199,6 +209,7 @@
 
         // ================= État =================
         let carte = null, marqueur = null, marqueurVoiture = null;
+        let coucheParcours = null, parcoursVisible = false;   // calque des pastilles + trait chronologique
         let historique = [];
         let idSelection = null;
         let modeCorrection = false;      // le marqueur voiture n'est déplaçable QUE dans ce mode
@@ -659,7 +670,12 @@
         // ================= Historique =================
         function majAffichageHistorique(){
             const bloc=document.getElementById('historique'), titre=document.getElementById('histo-titre');
-            if(!historique.length){ bloc.innerHTML=''; titre.style.display='none'; return; }
+            if(!historique.length){
+                bloc.innerHTML=''; titre.style.display='none';
+                if(parcoursVisible){ masquerParcours(); parcoursVisible=false;
+                    const b=document.getElementById('btn-parcours'); b.classList.remove('actif'); b.textContent='🗺️ Afficher tous les stationnements'; }
+                return;
+            }
             titre.style.display='block';
             const courante=entreeCourante(), idCourant=courante?courante.id:null;
             bloc.innerHTML=[...historique].reverse().map(e=>{
@@ -667,6 +683,7 @@
                 const actif=(e.id===idCourant)?' actif':'';
                 return `<div class="histo-item${actif}"><div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div><div class="histo-actions"><button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>`;
             }).join('');
+            rafraichirParcours();
         }
         async function supprimerEntree(id){
             const e=historique.find(x=>x.id===id);
@@ -798,6 +815,65 @@
             majAffichageHistorique(); majDistance();
             await persister();
         }
+
+        // ================= Parcours : toutes les positions + trait chronologique =================
+        function iconePastille(numero, estDerniere){
+            return L.divIcon({
+                html:'<div class="pastille-parcours'+(estDerniere?' derniere':'')+'">'+numero+'</div>',
+                className:'', iconSize:[24,24], iconAnchor:[12,12], popupAnchor:[0,-12]
+            });
+        }
+        function construireParcours(){
+            const groupe = L.layerGroup();
+            const entrees = [...historique].sort((a,b)=> new Date(a.date) - new Date(b.date)); // ordre chronologique
+            const points = entrees.map(e=>[e.lat, e.lon]);
+            if(points.length >= 2){
+                L.polyline(points, { color:'#007aff', weight:3, opacity:0.75, dashArray:'6,8' }).addTo(groupe);
+            }
+            entrees.forEach((e, i)=>{
+                const estDerniere = (i === entrees.length-1);
+                const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
+                L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere) })
+                    .bindPopup('#'+(i+1)+' — '+formaterDate(e.date)+'<br>'+lieu)
+                    .addTo(groupe);
+            });
+            return groupe;
+        }
+        function afficherParcours(recadrer){
+            if(!historique.length){
+                document.getElementById('statut-voiture').innerHTML="<span class='error'>Aucun stationnement à afficher pour l'instant.</span>";
+                return false;
+            }
+            assurerCarte(historique[0].lat, historique[0].lon, 15);
+            if(coucheParcours){ carte.removeLayer(coucheParcours); }
+            coucheParcours = construireParcours();
+            coucheParcours.addTo(carte);
+            if(recadrer){
+                const pts = historique.map(e=>[e.lat, e.lon]);
+                if(marqueur){ const p=marqueur.getLatLng(); pts.push([p.lat, p.lng]); } // inclut ta position si connue
+                carte.fitBounds(L.latLngBounds(pts), { padding:[50,50], maxZoom:17 });
+            }
+            return true;
+        }
+        function masquerParcours(){
+            if(coucheParcours){ carte.removeLayer(coucheParcours); coucheParcours=null; }
+        }
+        function basculerParcours(){
+            const btn=document.getElementById('btn-parcours');
+            const statut=document.getElementById('statut-voiture');
+            if(parcoursVisible){
+                masquerParcours(); parcoursVisible=false;
+                btn.classList.remove('actif'); btn.textContent='🗺️ Afficher tous les stationnements';
+                statut.textContent='';
+                return;
+            }
+            if(!afficherParcours(true)) return;   // échec si historique vide
+            parcoursVisible=true;
+            btn.classList.add('actif'); btn.textContent='🗺️ Masquer les stationnements';
+            statut.textContent='🗺️ '+historique.length+' stationnement(s) reliés par ordre chronologique.';
+        }
+        // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
+        function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
 
         // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
         function itineraireVersVoiture(){
