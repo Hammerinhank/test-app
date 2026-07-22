@@ -69,6 +69,16 @@
         .sync-statut a { color: #007aff; text-decoration: underline; font-weight: 700; }
         .manuel-statut { margin-top: 12px; font-size: 13px; font-weight: 600; min-height: 16px; white-space: pre-line; line-height: 1.5; }
         .mode-stockage { margin-top: 10px; font-size: 13px; font-weight: 600; color: #34c759; text-align: center; }
+        #btn-corriger.actif { background: #ff9500; color: white; }
+        #btn-corriger.actif:active { background: #cc7700; }
+        .correction { display: none; margin-top: 12px; padding: 14px; background: #fff8ec; border: 2px solid #ff9500; border-radius: 12px; }
+        .correction.ouvert { display: block; }
+        .correction-txt { font-size: 13px; font-weight: 600; color: #1d1d1f; line-height: 1.5; text-align: left; margin-bottom: 12px; white-space: pre-line; }
+        .correction-actions { display: flex; gap: 10px; }
+        .correction-actions .mini { flex: 1; padding: 12px 8px; font-size: 15px; }
+        .mini.valider { background: #34c759; } .mini.valider:active { background: #248a3d; }
+        .mini.annuler { background: #8e8e93; } .mini.annuler:active { background: #6d6d72; }
+        .icone-voiture.edition { filter: drop-shadow(0 0 6px #ff9500) drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
         .aide { font-size: 12px; color: #86868b; margin-top: 12px; line-height: 1.5; }
     </style>
 </head>
@@ -87,6 +97,15 @@
         </div>
 
         <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
+
+        <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
+        <div id="panneau-correction" class="correction">
+            <div class="correction-txt" id="correction-txt">Fais glisser le repère 🚗 jusqu'au bon endroit, puis valide.</div>
+            <div class="correction-actions">
+                <button class="mini valider" onclick="validerCorrection()">✅ Valider</button>
+                <button class="mini annuler" onclick="annulerCorrection()">↩︎ Annuler</button>
+            </div>
+        </div>
 
         <div id="statut-voiture" class="statut"></div>
         <div id="distance" class="distance"></div>
@@ -153,6 +172,9 @@
         let carte = null, marqueur = null, marqueurVoiture = null;
         let historique = [];
         let idSelection = null;
+        let modeCorrection = false;      // le marqueur voiture n'est déplaçable QUE dans ce mode
+        let posAvantCorrection = null;   // {lat,lon} pour pouvoir annuler
+        let idCorrection = null;         // id de l'entrée en cours de correction
         let shaFichier = null;
         let token = '', passphrase = '';
 
@@ -449,11 +471,18 @@
         }
         function afficherVoiture(lat,lon){
             assurerCarte(lat,lon,16);
-            if(marqueurVoiture===null) marqueurVoiture=L.marker([lat,lon],{icon:iconeVoiture}).addTo(carte); else marqueurVoiture.setLatLng([lat,lon]);
+            if(marqueurVoiture===null){
+                marqueurVoiture=L.marker([lat,lon],{icon:iconeVoiture,draggable:false}).addTo(carte);
+                // Le déplacement n'est pris en compte que si le mode correction est actif
+                marqueurVoiture.on('dragend', ()=>{ if(modeCorrection) surDeplacementVoiture(); });
+            } else {
+                marqueurVoiture.setLatLng([lat,lon]);
+            }
         }
         function popupVoiture(e){ const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5)); return `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`; }
         function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } }
         function selectionnerEntree(id){
+            if(modeCorrection) annulerCorrection();   // on ne reste pas en correction en changeant d'entrée
             idSelection=id; const e=entreeCourante(); if(!e) return;
             afficherVoiture(e.lat,e.lon); carte.setView([e.lat,e.lon],17);
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
@@ -526,6 +555,7 @@
             const e=historique.find(x=>x.id===id);
             const lieu=e&&e.adresse?e.adresse:"cette entrée";
             if(!confirm("Supprimer « "+lieu+" » de l'historique ?")) return;
+            if(modeCorrection && id===idCorrection) quitterModeCorrection();
             historique=historique.filter(x=>x.id!==id);
             if(idSelection===id) idSelection=null;
             const courante=entreeCourante();
@@ -572,6 +602,77 @@
             statut.textContent="👁️ Ta position et ta voiture sont visibles.";
             majDistance();
         }
+        // ================= Correction manuelle du point (marqueur déplaçable, sécurisée) =================
+        function elCorr(){ return document.getElementById('panneau-correction'); }
+        function btnCorr(){ return document.getElementById('btn-corriger'); }
+        function txtCorr(){ return document.getElementById('correction-txt'); }
+
+        function basculerCorrection(){
+            if(modeCorrection){ annulerCorrection(); return; }   // re-clic = sortie sans enregistrer
+            const statut=document.getElementById('statut-voiture');
+            const e=entreeCourante();
+            if(!e){ statut.innerHTML="<span class='error'>Aucun stationnement à corriger. Enregistre-en un d'abord.</span>"; return; }
+            // On travaille sur l'entrée affichée, et on mémorise sa position pour pouvoir annuler
+            modeCorrection=true;
+            idCorrection=e.id;
+            posAvantCorrection={ lat:e.lat, lon:e.lon };
+            afficherVoiture(e.lat,e.lon);
+            carte.setView([e.lat,e.lon],18);
+            marqueurVoiture.closePopup();
+            if(marqueurVoiture.dragging) marqueurVoiture.dragging.enable();
+            marqueurVoiture.getElement() && marqueurVoiture.getElement().classList.add('edition');
+            btnCorr().classList.add('actif'); btnCorr().textContent='✏️ Mode correction actif — cliquer pour quitter';
+            elCorr().classList.add('ouvert');
+            txtCorr().textContent="Fais glisser le repère 🚗 jusqu'au bon endroit, puis valide.";
+            statut.textContent="✏️ Mode correction : déplace le repère de la voiture.";
+        }
+
+        function surDeplacementVoiture(){
+            const pos=marqueurVoiture.getLatLng();
+            txtCorr().textContent="Nouveau point : "+pos.lat.toFixed(6)+", "+pos.lng.toFixed(6)+"\nValide pour enregistrer, ou annule pour revenir en arrière.";
+            majDistance();
+        }
+
+        function quitterModeCorrection(){
+            modeCorrection=false; idCorrection=null; posAvantCorrection=null;
+            if(marqueurVoiture){
+                if(marqueurVoiture.dragging) marqueurVoiture.dragging.disable();
+                const el=marqueurVoiture.getElement(); if(el) el.classList.remove('edition');
+            }
+            btnCorr().classList.remove('actif'); btnCorr().textContent='✏️ Corriger la position sur la carte';
+            elCorr().classList.remove('ouvert');
+        }
+
+        function annulerCorrection(){
+            // Remet EXACTEMENT la voiture où elle était avant l'entrée en mode correction
+            if(posAvantCorrection && marqueurVoiture){
+                marqueurVoiture.setLatLng([posAvantCorrection.lat, posAvantCorrection.lon]);
+                carte.setView([posAvantCorrection.lat, posAvantCorrection.lon],17);
+            }
+            quitterModeCorrection();
+            document.getElementById('statut-voiture').textContent="↩︎ Correction annulée, position inchangée.";
+            majDistance();
+        }
+
+        async function validerCorrection(){
+            const statut=document.getElementById('statut-voiture');
+            const pos=marqueurVoiture ? marqueurVoiture.getLatLng() : null;
+            const entree=historique.find(x=>x.id===idCorrection);
+            if(!pos || !entree){ annulerCorrection(); return; }
+            // Rien n'a bougé ? on sort proprement sans réécrire l'historique
+            if(posAvantCorrection && pos.lat===posAvantCorrection.lat && pos.lng===posAvantCorrection.lon){
+                quitterModeCorrection(); statut.textContent="Position inchangée."; return;
+            }
+            txtCorr().textContent="Enregistrement de la nouvelle position…";
+            entree.lat=pos.lat; entree.lon=pos.lng;
+            entree.adresse=await recupererAdresseCourte(pos.lat, pos.lng);  // adresse recalculée
+            marqueurVoiture.bindPopup(popupVoiture(entree));
+            quitterModeCorrection();
+            statut.textContent="✅ Position de la voiture corrigée.";
+            majAffichageHistorique(); majDistance();
+            await persister();
+        }
+
         // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
         function itineraireVersVoiture(){
             const statut=document.getElementById('statut-voiture');
