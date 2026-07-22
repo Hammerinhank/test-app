@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.15.0</title>
+    <title>Ma Géolocalisation — v1.16.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -211,7 +211,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.15.0';
+        const VERSION = '1.16.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -603,7 +603,11 @@
             idSuivi = navigator.geolocation.watchPosition(surSuiviPosition, ()=>{}, OPTIONS_SUIVI);
         }
         function arreterSuivi(){
-            if(idSuivi!==null){ navigator.geolocation.clearWatch(idSuivi); idSuivi=null; }
+            if(idSuivi!==null){
+                navigator.geolocation.clearWatch(idSuivi); idSuivi=null;
+                const st=document.getElementById('statut-voiture');
+                if(st && st.textContent.indexOf('Suivi de ta position')!==-1) st.textContent='';  // efface le message résiduel
+            }
         }
         // Bouton ON/OFF du suivi (à côté de « Fermer », visible en plein écran)
         function basculerSuivi(){
@@ -1033,6 +1037,12 @@
         // ================= Démarrage =================
         window.addEventListener('load', async ()=>{
             document.getElementById('version-appli').textContent = 'Version ' + VERSION + ' — ' + DATE_VERSION;
+            // Sécurité batterie : coupe le suivi GPS dès que l'app passe en arrière-plan ou est masquée
+            document.addEventListener('visibilitychange', ()=>{
+                if(document.hidden) arreterSuivi();
+                else if(pleinEcran && suiviActif) demarrerSuivi();   // reprise au retour au premier plan
+            });
+            window.addEventListener('pagehide', arreterSuivi);
             chargerConfigLocale();
             chargerCacheLocal();                 // le mode local s'affiche immédiatement
             majAffichageHistorique(); rafraichirVoiture(); majMode();
