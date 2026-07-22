@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.21.0</title>
+    <title>Ma Géolocalisation — v1.22.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -234,9 +234,11 @@
             <div id="sim-statut" class="parking-url-statut"></div>
             <div class="aide">
                 Ce bouton fait ce que fera le raccourci : il prend ta position actuelle et construit l'URL
-                <code>?parking=…</code>. Si un token GitHub est configuré, il vérifie que la page est bien
-                <strong>publiée</strong> (GitHub Pages) et, si ce n'est pas le cas, tente de l'activer
-                automatiquement — ou t'explique exactement quoi faire si le token n'a pas la permission.
+                <code>?parking=…</code>. Le fichier publié doit s'appeler exactement <code>localisation.html</code>
+                (à la racine du dépôt) ; l'URL visée est donc de la forme
+                <code>https://…github.io/localisation.html?parking=…</code>. Si un token GitHub est configuré,
+                le bouton vérifie que la page est bien <strong>publiée</strong> (GitHub Pages) et, sinon, tente de
+                l'activer automatiquement — ou t'explique exactement quoi faire si le token n'a pas la permission.
             </div>
         </details>
 
@@ -248,12 +250,13 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.21.0';
+        const VERSION = '1.22.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
         const REPO_DEFAUT = 'hammerinhank/hammerinhank.github.io';
         const FICHIER = 'parkings.json';
+        const FICHIER_PUBLIE = 'localisation.html';   // nom fixe du fichier publié sur GitHub Pages
         let ghUser = 'hammerinhank', ghRepo = 'hammerinhank.github.io';
         let branche = 'main';
 
@@ -852,9 +855,8 @@
         function lienCliquable(url){ const u=echapper(url); return '<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>'; }
         function urlPubliee(){
             const estSiteUser = ghRepo.toLowerCase() === (ghUser+'.github.io').toLowerCase();
-            const fichier = (window.location.pathname.split('/').pop()) || 'localisation.html';
             const base = estSiteUser ? 'https://'+ghUser+'.github.io/' : 'https://'+ghUser+'.github.io/'+ghRepo+'/';
-            return base + fichier;
+            return base + FICHIER_PUBLIE;   // nom de fichier fixe (localisation.html)
         }
         function simulerShortcut(){
             // rafraîchit dépôt + token depuis les champs (au cas où ils viennent d'être modifiés)
