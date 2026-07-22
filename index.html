@@ -457,16 +457,26 @@
                 // doubleClickZoom désactivé : le double-clic/tap sert au plein écran (voir basculerPleinEcran)
                 carte=L.map('map',{doubleClickZoom:false}).setView([lat,lon],zoom||16);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(carte);
-                carte.on('dblclick', basculerPleinEcran);          // souris (ordinateur)
-                installerDoubleTap(carte.getContainer());          // tactile (iPhone/Android)
+                carte.on('dblclick', basculerPleinEcran);   // souris (ordinateur)
+                // Tactile : on mesure l'écart entre deux 'click' Leaflet (fiable sur iPhone, contrairement à 'dblclick')
+                let dernierClic=0;
+                carte.on('click', ()=>{
+                    const t=Date.now();
+                    if(t-dernierClic < 400){ dernierClic=0; basculerPleinEcran(); }
+                    else dernierClic=t;
+                });
             }
             setTimeout(()=>carte.invalidateSize(),100);
         }
 
         // Double-clic (ou double-tap) sur la carte : plein écran / retour à la vue normale.
         let pleinEcran = false;
+        let dernierBascule = 0;
         function basculerPleinEcran(){
             if(carte===null) return;
+            const maintenant=Date.now();
+            if(maintenant-dernierBascule < 400) return;   // anti double-déclenchement (souris + tactile)
+            dernierBascule=maintenant;
             const mapDiv=document.getElementById('map');
             const btnFermer=document.getElementById('btn-fermer-carte');
             pleinEcran=!pleinEcran;
