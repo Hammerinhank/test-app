@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.7.0</title>
+    <title>Ma Géolocalisation — v1.9.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -165,7 +165,9 @@
             </label>
             <button class="btn-gris" onclick="testerToken()">Tester le token</button>
             <button class="btn-voiture" onclick="enregistrerConfig()">Enregistrer &amp; synchroniser</button>
+            <button class="btn-gris" onclick="verifierSynchro()">🔍 Vérifier / réparer la synchro</button>
             <div id="sync-statut" class="sync-statut"></div>
+            <div id="diag-statut" class="sync-statut"></div>
             <div class="aide">
                 <strong>Stockage local toujours actif :</strong> l'historique est pérennisé dans le
                 navigateur (localStorage) et fonctionne même sans GitHub. La synchro GitHub s'ajoute
@@ -183,7 +185,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.7.0';
+        const VERSION = '1.9.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -460,6 +462,66 @@
                 majSync("✅ Synchronisé. Historique fusionné (local + GitHub), rien n'a été perdu.", '#34c759');
                 idSelection = null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
             } catch(e){ majSync("Stockage local conservé. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30'); }
+            majMode();
+        }
+
+        // Diagnostic en clair : combien d'entrées en local vs sur GitHub, puis réparation non destructive.
+        // Utilise les valeurs actuellement saisies (token/phrase/dépôt) — pratique juste après un changement de token.
+        async function verifierSynchro(){
+            const diag=document.getElementById('diag-statut');
+            const nLocal=historique.length;
+            // On prend ce qui est saisi dans les champs (nouveau token éventuel)
+            let p;
+            try { p=parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; }
+            catch(e){ diag.style.color='#ff3b30'; diag.innerHTML=messageErreur(e); return; }
+            token = document.getElementById('gh-token').value.trim();
+            passphrase = document.getElementById('gh-pass').value;
+
+            if(!token || !passphrase){
+                diag.style.color='#86868b';
+                diag.textContent="Stockage local seul : "+nLocal+" stationnement(s) sur cet appareil.\nGitHub non configuré — aucune synchro à vérifier (et rien à perdre : le local est permanent).";
+                return;
+            }
+            diag.style.color='#007aff'; diag.textContent="Vérification en cours…";
+            try{
+                await majBrancheDepuisRepo(token);                 // token + dépôt valides ?
+                try { localStorage.setItem(CLE_REPO, ghUser+'/'+ghRepo); localStorage.setItem(CLE_TOKEN, token); } catch(_){}
+                const distant = await chargerDepuisGitHub();        // déchiffre avec la phrase (erreur claire si mauvaise)
+
+                if(distant===null){
+                    diag.style.color='#ff9500';
+                    diag.textContent="parkings.json n'existe pas encore sur GitHub.\nLocal : "+nLocal+"  ·  GitHub : 0.";
+                    if(nLocal){ await ecrireVersGitHub(); diag.style.color='#34c759'; diag.textContent="✅ Réparé : tes "+nLocal+" stationnement(s) sont maintenant sauvegardés sur GitHub."; }
+                    else { diag.style.color='#86868b'; diag.textContent="Historique vide : rien à sauvegarder pour l'instant."; }
+                    majMode(); return;
+                }
+                // La phrase est bonne (déchiffrement réussi) → on peut la mémoriser
+                try { localStorage.setItem(CLE_PASS, passphrase); } catch(_){}
+
+                const idsLocal=new Set(historique.map(e=>e.id));
+                const idsDistant=new Set(distant.map(e=>e.id));
+                const communs=historique.filter(e=>idsDistant.has(e.id)).length;
+                const seulLocal=historique.filter(e=>!idsDistant.has(e.id)).length;
+                const seulDistant=distant.filter(e=>!idsLocal.has(e.id)).length;
+
+                if(seulLocal===0 && seulDistant===0){
+                    diag.style.color='#34c759';
+                    diag.textContent="✅ Tout est à jour.\nLocal et GitHub contiennent les mêmes "+communs+" stationnement(s).";
+                    majMode(); return;
+                }
+                // Différence → fusion non destructive (aucune perte), puis renvoi du tout
+                diag.style.color='#ff9500';
+                diag.textContent="Différence détectée, réparation en cours…\nEn commun : "+communs+"  ·  seulement en local : "+seulLocal+"  ·  seulement sur GitHub : "+seulDistant+".";
+                historique=fusionner(historique, distant);
+                sauverCacheLocal();
+                await ecrireVersGitHub();
+                idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
+                diag.style.color='#34c759';
+                diag.textContent="✅ Réparé : historique fusionné, rien n'a été perdu.\nLocal et GitHub contiennent désormais "+historique.length+" stationnement(s).";
+            }catch(e){
+                diag.style.color='#ff3b30';
+                diag.innerHTML="Le stockage local reste intact ("+nLocal+" entrée(s)).\n\n"+messageErreur(e);
+            }
             majMode();
         }
 
