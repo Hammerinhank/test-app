@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.16.0</title>
+    <title>Ma Géolocalisation — v1.20.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -57,7 +57,9 @@
             background: rgba(255,255,255,0.95); color: #1d1d1f; border-radius: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.25);
         }
-        #btn-suivi.actif { background: #34c759; color: #fff; }
+        #btn-suivi.eco { background: #ff9500; color: #fff; }
+        #btn-suivi.normal { background: #34c759; color: #fff; }
+        #btn-detection.actif { background: #34c759; color: #fff; }
         .error { color: #ff3b30; font-weight: 600; }
         .icone-voiture { font-size: 26px; line-height: 36px; text-align: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
         .histo-titre { display: none; margin-top: 22px; margin-bottom: 8px; font-size: 16px; font-weight: 700; text-align: left; }
@@ -117,6 +119,11 @@
         .icone-voiture.edition { filter: drop-shadow(0 0 6px #ff9500) drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
         .aide { font-size: 12px; color: #86868b; margin-top: 12px; line-height: 1.5; }
         .version-appli { margin-top: 20px; font-size: 12px; color: #b0b0b6; text-align: center; letter-spacing: 0.3px; }
+        .parking-url-statut { display: none; margin-bottom: 16px; padding: 12px 14px; border-radius: 10px;
+            font-size: 13px; font-weight: 600; white-space: pre-line; line-height: 1.5; text-align: left; }
+        .parking-url-statut.ok   { display: block; background: #eaf7ee; color: #248a3d; border: 1px solid #34c759; }
+        .parking-url-statut.err  { display: block; background: #fdecea; color: #c1271d; border: 1px solid #ff3b30; }
+        .parking-url-statut.info { display: block; background: #fff8ec; color: #8a5a00; border: 1px solid #ff9500; }
         .adresse-voiture { display: none; margin-top: 10px; font-size: 14px; line-height: 1.5; text-align: left;
             background: #f5f5f7; padding: 12px 15px; border-radius: 10px; word-break: break-word; }
     </style>
@@ -126,6 +133,7 @@
     <div class="card">
         <h1>Où suis-je ?</h1>
         <p>Clique sur le bouton pour afficher la carte en direct.</p>
+        <div id="parking-url-statut" class="parking-url-statut"></div>
         <button onclick="trouverPosition()">Ma Position Actuelle</button>
         <button class="btn-voiture" onclick="memoriserVoiture()">🚗 Je suis garé ici</button>
 
@@ -203,6 +211,22 @@
             </div>
         </details>
 
+        <details class="manuel">
+            <summary>🅿️ Détection automatique du stationnement (expérimental)</summary>
+            <button id="btn-detection" class="btn-gris" onclick="basculerDetectionAuto()">Activer la détection auto</button>
+            <div id="detection-statut" class="manuel-statut"></div>
+            <div class="aide">
+                Quand c'est activé, l'appli relève ta position environ toutes les 2 minutes (position
+                <em>grossière</em>, économe en batterie), estime ta vitesse, et distingue les moments où tu es
+                <strong>en voiture</strong> des moments où tu ne l'es pas. Après une phase de conduite suivie de
+                <strong>30 minutes sans rouler</strong>, un stationnement est créé automatiquement à l'endroit où
+                la voiture s'est arrêtée.<br><br>
+                <strong>Limite importante (iPhone) :</strong> une page web ne tourne pas en arrière-plan. La
+                détection ne fonctionne donc que <strong>tant que cette appli reste ouverte à l'écran</strong> ;
+                elle se met en pause si tu verrouilles le téléphone ou changes d'application.
+            </div>
+        </details>
+
         <div id="version-appli" class="version-appli"></div>
     </div>
 
@@ -211,7 +235,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.16.0';
+        const VERSION = '1.20.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -240,12 +264,26 @@
         const CLE_PASS    = 'gh_pass';
         const CLE_REPO    = 'gh_repo';
         const CLE_BRANCHE = 'gh_branch';
+        const CLE_DETECTION = 'detection_auto';
         const CLE_ANCIENNE = 'positionVoiture';
 
         const OPTIONS_GEO = { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 };
-        const OPTIONS_SUIVI = { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }; // suivi temps réel (plein écran)
-        let idSuivi = null;   // identifiant de watchPosition tant que le suivi est actif
-        let suiviActif = true; // préférence utilisateur (bouton en plein écran), mémorisée pour la session
+        const OPTIONS_SUIVI_ECO    = { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }; // éco : relevés espacés
+        const OPTIONS_SUIVI_NORMAL = { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }; // normal : plus réactif
+        let idSuivi = null;         // identifiant de watchPosition tant que le suivi tourne
+        let modeSuivi = 'off';      // 'eco' | 'normal' | 'off' — cycle du bouton en plein écran
+
+        // ===== Détection automatique du stationnement =====
+        const INTERVALLE_DETECTION = 120000;         // 2 min entre deux relevés
+        const SEUIL_CONDUITE_MS    = 6.94;           // > 25 km/h ⇒ manifestement en voiture
+        const SEUIL_ARRET_MS       = 1.4;            // < 5 km/h ⇒ arrêté / à pied
+        const DUREE_CONFIRMATION   = 30 * 60 * 1000; // 30 min d'arrêt après conduite ⇒ stationnement
+        let detectionAuto = false;
+        let idIntervalDetection = null;
+        let echantillonPrec = null;   // {lat, lon, t}
+        let aConduit = false;         // a-t-on roulé récemment ?
+        let candidatArret = null;     // {lat, lon} où la voiture s'est arrêtée
+        let tDebutArret = null;       // horodatage du début d'arrêt
         const iconeVoiture = L.divIcon({ html:'🚗', className:'icone-voiture', iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-18] });
 
         // ================= Utilitaires =================
@@ -592,34 +630,46 @@
             setTimeout(()=>{ if(carte) carte.invalidateSize(); }, 60);
             setTimeout(()=>{ if(carte) carte.invalidateSize(); }, 300);
             // Suivi temps réel actif uniquement en plein écran (et selon la préférence du bouton)
-            if(pleinEcran){ majBoutonSuivi(); if(suiviActif) demarrerSuivi(); }
-            else arreterSuivi();
+            // Suivi actif uniquement en plein écran : démarre en mode éco à l'entrée, s'arrête à la sortie
+            if(pleinEcran){ demarrerSuivi(); }
+            else { modeSuivi='off'; arreterSuivi(); }
         }
 
-        // ===== Suivi en temps réel de ma position (plein écran) =====
-        function demarrerSuivi(){
-            if(idSuivi!==null || !navigator.geolocation) return;
-            document.getElementById('statut-voiture').textContent="📡 Suivi de ta position activé.";
-            idSuivi = navigator.geolocation.watchPosition(surSuiviPosition, ()=>{}, OPTIONS_SUIVI);
+        // ===== Suivi en temps réel de ma position (plein écran) — 3 états : éco → normal → arrêt =====
+        function arreterWatch(){   // coupe le GPS sans changer le mode choisi
+            if(idSuivi!==null){ navigator.geolocation.clearWatch(idSuivi); idSuivi=null; }
         }
-        function arreterSuivi(){
-            if(idSuivi!==null){
-                navigator.geolocation.clearWatch(idSuivi); idSuivi=null;
-                const st=document.getElementById('statut-voiture');
-                if(st && st.textContent.indexOf('Suivi de ta position')!==-1) st.textContent='';  // efface le message résiduel
-            }
+        function arreterSuivi(){   // arrêt complet (sortie du plein écran, arrière-plan…)
+            arreterWatch();
+            const st=document.getElementById('statut-voiture');
+            if(st && st.textContent.indexOf('Suivi')!==-1) st.textContent='';   // efface un éventuel message résiduel
         }
-        // Bouton ON/OFF du suivi (à côté de « Fermer », visible en plein écran)
-        function basculerSuivi(){
-            suiviActif = !suiviActif;
-            if(suiviActif && pleinEcran) demarrerSuivi(); else arreterSuivi();
+        function appliquerModeSuivi(){   // (re)lance le watch avec les options du mode courant
+            arreterWatch();
+            const st=document.getElementById('statut-voiture');
+            if(modeSuivi==='off'){ if(st) st.textContent="📡 Suivi arrêté."; majBoutonSuivi(); return; }
+            if(!navigator.geolocation){ if(st) st.textContent="La géolocalisation n'est pas supportée."; return; }
+            const opts = (modeSuivi==='normal') ? OPTIONS_SUIVI_NORMAL : OPTIONS_SUIVI_ECO;
+            idSuivi = navigator.geolocation.watchPosition(surSuiviPosition, ()=>{}, opts);
+            if(st) st.textContent = (modeSuivi==='normal')
+                ? "📡 Suivi normal activé (plus réactif)."
+                : "🔋 Suivi éco activé (relevés espacés).";
             majBoutonSuivi();
-            if(!suiviActif) document.getElementById('statut-voiture').textContent="📡 Suivi désactivé (économie de batterie).";
+        }
+        // Démarre en mode éco à l'entrée du plein écran
+        function demarrerSuivi(){ modeSuivi='eco'; appliquerModeSuivi(); }
+        // Clic sur le bouton : éco → normal → arrêt → éco …
+        function basculerSuivi(){
+            if(!pleinEcran) return;
+            modeSuivi = (modeSuivi==='eco') ? 'normal' : (modeSuivi==='normal') ? 'off' : 'eco';
+            appliquerModeSuivi();
         }
         function majBoutonSuivi(){
             const b=document.getElementById('btn-suivi'); if(!b) return;
-            b.classList.toggle('actif', suiviActif);
-            b.textContent = suiviActif ? '📡 Suivi ON' : '📡 Suivi OFF';
+            b.classList.remove('eco','normal');
+            if(modeSuivi==='eco'){ b.classList.add('eco'); b.textContent='🔋 Suivi éco'; }
+            else if(modeSuivi==='normal'){ b.classList.add('normal'); b.textContent='📡 Suivi normal'; }
+            else { b.textContent='📡 Suivi OFF'; }
         }
         function surSuiviPosition(position){
             const lat=position.coords.latitude, lon=position.coords.longitude;
@@ -629,6 +679,155 @@
             // On garde le repère visible : on ne recentre que s'il sort du cadre (pour ne pas gêner un déplacement manuel de la carte)
             if(!carte.getBounds().contains([lat,lon])) carte.panTo([lat,lon]);
             majDistance();   // la distance à la voiture se met à jour en direct
+        }
+
+        // ===== Détection automatique du stationnement (voiture → arrêt prolongé) =====
+        function distanceMetres(la1,lo1,la2,lo2){ return L.latLng(la1,lo1).distanceTo(L.latLng(la2,lo2)); }
+        function statutDetection(txt, couleur){
+            const el=document.getElementById('detection-statut'); if(!el) return;
+            el.textContent=txt; el.style.color=couleur||'#007aff';
+        }
+        function majBoutonDetection(){
+            const b=document.getElementById('btn-detection'); if(!b) return;
+            b.classList.toggle('actif', detectionAuto);
+            b.textContent = detectionAuto ? '⏹️ Désactiver la détection auto' : 'Activer la détection auto';
+        }
+        function basculerDetectionAuto(){
+            detectionAuto = !detectionAuto;
+            try { localStorage.setItem(CLE_DETECTION, detectionAuto ? '1':'0'); } catch(e){}
+            if(detectionAuto) demarrerDetection(); else arreterDetection();
+            majBoutonDetection();
+        }
+        function demarrerDetection(){
+            if(!navigator.geolocation){ statutDetection("La géolocalisation n'est pas supportée sur cet appareil.", '#ff3b30'); detectionAuto=false; majBoutonDetection(); return; }
+            echantillonPrec=null; aConduit=false; candidatArret=null; tDebutArret=null;
+            statutDetection("🅿️ Détection active. Garde l'appli ouverte à l'écran pour qu'elle fonctionne.", '#34c759');
+            echantillonner();                                   // premier relevé immédiat
+            if(idIntervalDetection===null) idIntervalDetection=setInterval(echantillonner, INTERVALLE_DETECTION);
+        }
+        function arreterDetection(){
+            if(idIntervalDetection!==null){ clearInterval(idIntervalDetection); idIntervalDetection=null; }
+            statutDetection("Détection désactivée.", '#86868b');
+        }
+        function echantillonner(){
+            if(!navigator.geolocation) return;
+            // position grossière + réutilisation d'un point récent ⇒ faible coût batterie
+            navigator.geolocation.getCurrentPosition(traiterEchantillon, erreurEchantillon, { enableHighAccuracy:false, timeout:30000, maximumAge:60000 });
+        }
+        function erreurEchantillon(err){
+            if(err && err.code===err.PERMISSION_DENIED){
+                detectionAuto=false;
+                if(idIntervalDetection!==null){ clearInterval(idIntervalDetection); idIntervalDetection=null; }
+                try { localStorage.setItem(CLE_DETECTION, '0'); } catch(e){}
+                majBoutonDetection();
+                statutDetection("❌ Détection impossible : accès à la localisation refusé.\n→ Autorise la localisation pour ce site dans Réglages iOS, puis réactive la détection.", '#ff3b30');
+            }
+            // autres erreurs ponctuelles (signal faible, timeout) : on ignore, le prochain relevé réessaiera
+        }
+        function traiterEchantillon(position){
+            const lat=position.coords.latitude, lon=position.coords.longitude, t=Date.now();
+            if(echantillonPrec){
+                const d = distanceMetres(echantillonPrec.lat, echantillonPrec.lon, lat, lon);
+                const dt = (t - echantillonPrec.t)/1000;
+                const v = dt>0 ? d/dt : 0;                       // vitesse en m/s
+                if(v > SEUIL_CONDUITE_MS){
+                    aConduit = true;                             // manifestement en voiture
+                    candidatArret = null; tDebutArret = null;    // annule tout arrêt en attente (feu rouge, bouchon…)
+                } else if(v < SEUIL_ARRET_MS){
+                    if(aConduit){
+                        if(!candidatArret){ candidatArret={lat, lon}; tDebutArret=t;   // on vient de s'arrêter
+                            statutDetection("Arrêt détecté après conduite. Confirmation dans 30 min si tu ne repars pas…", '#ff9500');
+                        } else if(t - tDebutArret >= DUREE_CONFIRMATION){
+                            creerStationnementAuto(candidatArret.lat, candidatArret.lon);
+                            aConduit=false; candidatArret=null; tDebutArret=null;
+                        }
+                    }
+                }
+                // vitesse intermédiaire (5–25 km/h) : on ne tranche pas, le minuteur d'arrêt continue de courir
+            }
+            echantillonPrec = {lat, lon, t};
+        }
+        async function ajouterStationnementDetecte(lat, lon, date){
+            const dernier = historique.length ? historique[historique.length-1] : null;
+            if(dernier && distanceMetres(dernier.lat, dernier.lon, lat, lon) < 60){
+                return { ok:false, raison:'doublon' };            // trop proche d'un stationnement existant
+            }
+            const adresse = await recupererAdresseCourte(lat, lon);
+            const entree = { id:Date.now(), lat, lon, adresse, date:(date||new Date()).toISOString(), note:'', auto:true };
+            historique.push(entree); idSelection=entree.id;
+            if(carte){ afficherVoiture(lat,lon); marqueurVoiture.bindPopup(popupVoiture(entree)); }
+            majAffichageHistorique(); majDistance();
+            await persister();
+            const lieu = adresse ? adresse : (lat.toFixed(5)+', '+lon.toFixed(5));
+            return { ok:true, entree, lieu };
+        }
+        // Utilisé par la détection interne (2 min)
+        async function creerStationnementAuto(lat, lon, date){
+            const r = await ajouterStationnementDetecte(lat, lon, date);
+            if(r.ok){
+                statutDetection("🅿️ Stationnement détecté automatiquement : "+r.lieu, '#34c759');
+                document.getElementById('statut-voiture').textContent="🅿️ Stationnement enregistré automatiquement.";
+            }
+        }
+
+        // ===== Enregistrement via l'URL (raccourci iOS) : …/localisation.html?parking=48.2580,7.4589[&t=…] =====
+        function banniereParking(type, texte){
+            const el=document.getElementById('parking-url-statut'); if(!el) return;
+            el.className='parking-url-statut '+type;   // 'ok' | 'err' | 'info'
+            el.textContent=texte;
+        }
+        async function traiterParametreParking(){
+            const params = new URLSearchParams(window.location.search);
+            if(!params.has('parking')) return;          // aucun paramètre : rien à faire
+            const brut = (params.get('parking')||'').trim();
+            const tParam = params.get('t');
+            // nettoie l'URL tout de suite pour ne pas recréer l'entrée à un rechargement
+            try { history.replaceState(null, '', window.location.pathname); } catch(e){}
+
+            if(!brut){
+                banniereParking('err',
+                    "❌ Aucune coordonnée reçue dans l'URL (paramètre « parking » vide).\n"+
+                    "→ Le raccourci a bien ouvert l'appli, mais l'URL ne contenait pas les coordonnées. Dans Raccourcis, vérifie que l'action « Texte » insère bien les variables Latitude et Longitude, par ex. …?parking=48.2580226,7.4589611");
+                return;
+            }
+            const res = analyserCoordonnees(brut);
+            if(!res){
+                banniereParking('err',
+                    "❌ Coordonnées illisibles reçues du raccourci : « "+brut+" ».\n"+
+                    "→ Format attendu : parking=latitude,longitude (ex. 48.2580226,7.4589611). Dans le raccourci, enchaîne « Obtenir la position actuelle » puis deux fois « Obtenir les détails de l'emplacement » (Latitude, puis Longitude) séparées par une virgule.");
+                return;
+            }
+            if(res.erreur==='latitude'){
+                banniereParking('err',
+                    "❌ Latitude hors limites reçue du raccourci : « "+brut+" » (attendu entre -90 et 90).\n"+
+                    "→ Les deux valeurs sont peut-être inversées. Mets la latitude en premier et la longitude en second (ex. 48.2580226,7.4589611).");
+                return;
+            }
+            if(res.erreur==='longitude'){
+                banniereParking('err',
+                    "❌ Longitude hors limites reçue du raccourci : « "+brut+" » (attendu entre -180 et 180).\n"+
+                    "→ Vérifie l'ordre latitude,longitude dans le raccourci (ex. 48.2580226,7.4589611).");
+                return;
+            }
+            let date = new Date();
+            if(tParam){ const n=Number(tParam); const d = isFinite(n) ? new Date(n) : new Date(tParam); if(!isNaN(d.getTime())) date=d; }
+            try{
+                const r = await ajouterStationnementDetecte(res.lat, res.lon, date);
+                if(!r.ok && r.raison==='doublon'){
+                    banniereParking('info',
+                        "ℹ️ Un stationnement existe déjà à moins de 60 m : rien n'a été ajouté (anti-doublon).\n"+
+                        "→ C'est normal si le raccourci s'est déclenché deux fois de suite. Ton stationnement précédent reste en place.");
+                    return;
+                }
+                banniereParking('ok',
+                    "✅ Stationnement enregistré via le raccourci : "+r.lieu+".\n"+
+                    (configComplete()
+                        ? "Sauvegardé en local et synchronisé sur GitHub."
+                        : "Sauvegardé en local (GitHub non configuré — voir la section Synchronisation)."));
+            }catch(e){
+                banniereParking('err',
+                    "⚠️ Coordonnées reçues, mais l'enregistrement a rencontré un problème.\n"+messageErreur(e));
+            }
         }
 
         // ================= Ma position =================
@@ -1039,10 +1238,17 @@
             document.getElementById('version-appli').textContent = 'Version ' + VERSION + ' — ' + DATE_VERSION;
             // Sécurité batterie : coupe le suivi GPS dès que l'app passe en arrière-plan ou est masquée
             document.addEventListener('visibilitychange', ()=>{
-                if(document.hidden) arreterSuivi();
-                else if(pleinEcran && suiviActif) demarrerSuivi();   // reprise au retour au premier plan
+                if(document.hidden) arreterWatch();
+                else if(pleinEcran && modeSuivi!=='off') appliquerModeSuivi();   // reprise au retour au premier plan
             });
             window.addEventListener('pagehide', arreterSuivi);
+
+            // Détection auto : on restaure le réglage et on relance un relevé au retour au premier plan
+            try { detectionAuto = (localStorage.getItem(CLE_DETECTION)==='1'); } catch(e){ detectionAuto=false; }
+            majBoutonDetection();
+            if(detectionAuto) demarrerDetection();
+            document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && detectionAuto) echantillonner(); });
+
             chargerConfigLocale();
             chargerCacheLocal();                 // le mode local s'affiche immédiatement
             majAffichageHistorique(); rafraichirVoiture(); majMode();
@@ -1067,6 +1273,10 @@
                 }
                 majMode();
             }
+
+            // Traite un éventuel ?parking=lat,lon transmis par le raccourci iOS (après la synchro,
+            // pour que l'entrée soit aussi poussée sur GitHub si configuré)
+            await traiterParametreParking();
         });
     </script>
 
