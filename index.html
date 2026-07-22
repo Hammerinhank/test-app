@@ -39,6 +39,19 @@
         }
         .adresse { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; }
         #map { height: 250px; width: 100%; border-radius: 10px; margin-top: 15px; display: none; box-shadow: inset 0 0 5px rgba(0,0,0,0.15); }
+        #map.plein-ecran {
+            position: fixed; inset: 0; z-index: 9999;
+            height: 100% !important; width: 100% !important;
+            margin: 0; border-radius: 0; box-shadow: none;
+        }
+        body.pas-de-scroll { overflow: hidden; }
+        #btn-fermer-carte {
+            display: none; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 14px;
+            z-index: 10000; width: auto; padding: 10px 16px; font-size: 15px; font-weight: 700;
+            background: rgba(255,255,255,0.95); color: #1d1d1f; border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+        }
+        #btn-fermer-carte.visible { display: block; }
         .error { color: #ff3b30; font-weight: 600; }
         .icone-voiture { font-size: 26px; line-height: 36px; text-align: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
         .histo-titre { display: none; margin-top: 22px; margin-bottom: 8px; font-size: 16px; font-weight: 700; text-align: left; }
@@ -111,6 +124,7 @@
         <div id="distance" class="distance"></div>
         <div id="bloc-info" class="info"></div>
         <div id="map"></div>
+        <button id="btn-fermer-carte" onclick="basculerPleinEcran()">✕ Fermer</button>
 
         <div id="histo-titre" class="histo-titre">🅿️ Historique des stationnements</div>
         <div id="historique"></div>
@@ -440,10 +454,26 @@
         function assurerCarte(lat, lon, zoom){
             const mapDiv=document.getElementById('map'); mapDiv.style.display="block";
             if (carte===null){
-                carte=L.map('map').setView([lat,lon],zoom||16);
+                // doubleClickZoom désactivé : le double-clic sert au plein écran (voir basculerPleinEcran)
+                carte=L.map('map',{doubleClickZoom:false}).setView([lat,lon],zoom||16);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(carte);
+                carte.on('dblclick', basculerPleinEcran);
             }
             setTimeout(()=>carte.invalidateSize(),100);
+        }
+
+        // Double-clic (ou double-tap) sur la carte : plein écran / retour à la vue normale.
+        let pleinEcran = false;
+        function basculerPleinEcran(){
+            if(carte===null) return;
+            const mapDiv=document.getElementById('map');
+            const btnFermer=document.getElementById('btn-fermer-carte');
+            pleinEcran=!pleinEcran;
+            mapDiv.classList.toggle('plein-ecran', pleinEcran);
+            document.body.classList.toggle('pas-de-scroll', pleinEcran);
+            btnFermer.classList.toggle('visible', pleinEcran);
+            // Leaflet doit recalculer ses dimensions après le changement de taille
+            setTimeout(()=>{ if(carte){ carte.invalidateSize(); } }, 150);
         }
 
         // ================= Ma position =================
