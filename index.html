@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.9.0</title>
+    <title>Ma Géolocalisation — v1.11.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -62,6 +62,8 @@
             background: #f5f5f7; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; border: 2px solid transparent;
         }
         .histo-item.actif { border-color: #007aff; }
+        .histo-gauche { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+        .histo-gauche .pastille-parcours { flex-shrink: 0; }
         .histo-info { display: flex; flex-direction: column; overflow: hidden; }
         .histo-date { font-size: 13px; color: #86868b; }
         .histo-lieu { font-size: 14px; font-weight: 600; }
@@ -195,7 +197,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.9.0';
+        const VERSION = '1.11.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -678,10 +680,17 @@
             }
             titre.style.display='block';
             const courante=entreeCourante(), idCourant=courante?courante.id:null;
+            // Numérotation chronologique identique à la carte (uniquement quand le trajet est affiché)
+            const chrono=[...historique].sort((a,b)=> new Date(a.date)-new Date(b.date));
+            const numeroParId=new Map(); chrono.forEach((e,i)=>numeroParId.set(e.id, i+1));
+            const idDerniere = chrono.length ? chrono[chrono.length-1].id : null;
             bloc.innerHTML=[...historique].reverse().map(e=>{
                 const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 const actif=(e.id===idCourant)?' actif':'';
-                return `<div class="histo-item${actif}"><div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div><div class="histo-actions"><button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>`;
+                const pastille = parcoursVisible
+                    ? `<div class="pastille-parcours${e.id===idDerniere?' derniere':''}">${numeroParId.get(e.id)}</div>`
+                    : '';
+                return `<div class="histo-item${actif}"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir" onclick="selectionnerEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>`;
             }).join('');
             rafraichirParcours();
         }
@@ -865,12 +874,14 @@
                 masquerParcours(); parcoursVisible=false;
                 btn.classList.remove('actif'); btn.textContent='🗺️ Afficher tous les stationnements';
                 statut.textContent='';
+                majAffichageHistorique();   // retire les pastilles de la liste
                 return;
             }
             if(!afficherParcours(true)) return;   // échec si historique vide
             parcoursVisible=true;
             btn.classList.add('actif'); btn.textContent='🗺️ Masquer les stationnements';
             statut.textContent='🗺️ '+historique.length+' stationnement(s) reliés par ordre chronologique.';
+            majAffichageHistorique();   // ajoute les pastilles dans la liste
         }
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
