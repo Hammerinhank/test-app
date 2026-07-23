@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.25.0</title>
+    <title>Ma Géolocalisation — v1.39.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -60,7 +60,34 @@
         #btn-suivi.eco { background: #ff9500; color: #fff; }
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
-        .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
+        .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .btn-danger { background: #ff3b30; color: #fff; margin-top: 12px; }
+        .btn-danger:active { background: #c1271d; }
+        .btn-danger:disabled { background: #e8e8ed; color: #b0b0b6; cursor: not-allowed; }
+        .liste-trajets { margin-top: 12px; }
+        .trajet-item { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            background: #f5f5f7; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; text-align: left; }
+        .trajet-nom { font-size: 13px; font-weight: 600; overflow: hidden; word-break: break-word; }
+        .trajet-vide { font-size: 13px; color: #86868b; }
+        /* Fenêtre de confirmation ancrée EN HAUT : le clavier iPhone occupe le bas et ne la recouvre pas */
+        .modale-fond {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45); z-index: 20000;
+            justify-content: center; align-items: flex-start;
+            padding: calc(env(safe-area-inset-top, 0px) + 16px) 14px 14px;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .modale-fond.ouvert { display: flex; }
+        .modale-boite {
+            background: #fff; border-radius: 16px; width: 100%; max-width: 360px;
+            padding: 20px; text-align: left; box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+        .modale-titre { font-size: 17px; font-weight: 700; color: #ff3b30; margin-bottom: 10px; }
+        .modale-message { font-size: 14px; line-height: 1.5; color: #1d1d1f; white-space: pre-line; }
+        .modale-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+        .modale-actions .mini { width: 100%; padding: 13px; font-size: 15px; }
+        .modale-actions .mini:disabled { background: #e8e8ed; color: #b0b0b6; }
+        .modale-statut { margin-top: 10px; font-size: 13px; font-weight: 600; white-space: pre-line; line-height: 1.4; }
         .etat-suivi.off { background: #f0f0f2; color: #86868b; }
         .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
         .etat-suivi.normal { background: #eaf7ee; color: #248a3d; }
@@ -106,6 +133,23 @@
         #btn-corriger.actif { background: #ff9500; color: white; }
         #btn-corriger.actif:active { background: #cc7700; }
         #btn-parcours.actif { background: #007aff; color: white; }
+        #btn-recap.actif { background: #5856d6; color: #fff; }
+        #btn-recap.actif:active { background: #3f3ea8; }
+        #btn-recap.copie { background: #34c759; color: #fff; }
+        .recap { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; }
+        .recap.ouvert { display: block; }
+        .recap-zone {
+            width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 12px; line-height: 1.5; color: #1d1d1f; background: #fff;
+            border: 1px solid #d1d1d6; border-radius: 8px; padding: 10px; resize: vertical;
+        }
+        .recap-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .recap-label { display: block; margin: 12px 0 5px; font-size: 12px; font-weight: 700; color: #86868b; text-align: left; }
+        .recap-label:first-child { margin-top: 0; }
+        .recap-zone.consigne { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; background: #fffdf5; border-color: #ffd88a; }
+        .mini-plein { width: 100%; padding: 10px; font-size: 13px; margin-top: 8px; }
+        .recap-actions .mini { flex: 1; padding: 12px 8px; font-size: 15px; }
+        .recap-statut { margin-top: 10px; font-size: 13px; font-weight: 600; white-space: pre-line; line-height: 1.4; text-align: left; }
         #btn-parcours.actif:active { background: #0051d5; }
         .pastille-parcours {
             width: 24px; height: 24px; border-radius: 50%; background: #007aff; color: #fff;
@@ -113,6 +157,9 @@
             border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
         .pastille-parcours.derniere { background: #34c759; }
+        .pastille-parcours.cliquable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .pastille-parcours.cliquable:active { transform: scale(0.88); }
+        .popup-gmaps { width: 100%; margin-top: 8px; padding: 9px 10px; font-size: 13px; }
         .correction { display: none; margin-top: 12px; padding: 14px; background: #fff8ec; border: 2px solid #ff9500; border-radius: 12px; }
         .correction.ouvert { display: block; }
         .correction-txt { font-size: 13px; font-weight: 600; color: #1d1d1f; line-height: 1.5; text-align: left; margin-bottom: 12px; white-space: pre-line; }
@@ -152,6 +199,22 @@
 
         <button id="btn-parcours" class="btn-gris" onclick="basculerParcours()">🗺️ Afficher tous les stationnements</button>
 
+        <button id="btn-recap" class="btn-gris" onclick="basculerRecap()">📖 Texte pour l'IA (en faire une histoire)</button>
+        <div id="panneau-recap" class="recap">
+            <label class="recap-label" for="texte-consigne">Requête envoyée à l'IA (modifiable, conservée)</label>
+            <textarea id="texte-consigne" class="recap-zone consigne" rows="5" oninput="sauverConsigne()"></textarea>
+            <button class="btn-gris mini-plein" onclick="reinitialiserConsigne()">↩︎ Rétablir la requête par défaut</button>
+
+            <label class="recap-label" for="texte-recap">Récapitulatif des stationnements</label>
+            <textarea id="texte-recap" class="recap-zone" readonly rows="10"></textarea>
+
+            <div class="recap-actions">
+                <button class="mini valider" onclick="copierRecap()">📋 Copier l'ensemble</button>
+                <button class="mini annuler" onclick="basculerRecap()">Fermer</button>
+            </div>
+            <div id="recap-statut" class="recap-statut"></div>
+        </div>
+
         <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
         <div id="panneau-correction" class="correction">
             <div class="correction-txt" id="correction-txt">Fais glisser le repère 🚗 jusqu'au bon endroit, puis valide.</div>
@@ -164,7 +227,7 @@
         <div id="statut-voiture" class="statut"></div>
         <div id="distance" class="distance"></div>
         <div id="adresse-voiture" class="adresse-voiture"></div>
-        <div id="etat-suivi" class="etat-suivi off">Suivi de position : ⏸️ OFF</div>
+        <div id="etat-suivi" class="etat-suivi off" onclick="basculerSuivi()" role="button" tabindex="0">Suivi de position : ⏸️ OFF</div>
         <div id="bloc-info" class="info"></div>
         <div id="map"></div>
         <div id="barre-carte">
@@ -218,6 +281,24 @@
         </details>
 
         <details class="manuel">
+            <summary>💾 Sauvegardes de trajets</summary>
+            <label class="champ">Nom de la sauvegarde
+                <input id="nom-trajet" type="text" autocomplete="off" placeholder="nom du trajet (facultatif)">
+            </label>
+            <button class="btn-voiture" onclick="sauvegarderTrajet()">💾 Sauvegarder le trajet actuel</button>
+            <button class="btn-gris" onclick="listerTrajets()">🔄 Actualiser la liste des sauvegardes</button>
+            <div id="liste-trajets" class="liste-trajets"></div>
+            <button id="btn-effacer" class="btn-danger" onclick="effacerTout()" disabled>🗑️ Effacer tout le contenu</button>
+            <div id="trajets-statut" class="sync-statut"></div>
+            <div class="aide">
+                Chaque sauvegarde crée un fichier <strong>chiffré</strong> dans le dossier <code>trajets/</code> de
+                ton dépôt, nommé <code>Trajet AAAA-MM-JJ HHhMM &lt;nom&gt;.json</code>. Le rechargement
+                <strong>ajoute</strong> les stationnements à l'existant, sans rien écraser, en respectant l'ordre
+                chronologique. Le bouton d'effacement ne s'active que si le contenu actuel a été sauvegardé.
+            </div>
+        </details>
+
+        <details class="manuel">
             <summary>🅿️ Détection automatique du stationnement (expérimental)</summary>
             <button id="btn-detection" class="btn-gris" onclick="basculerDetectionAuto()">Activer la détection auto</button>
             <div id="detection-statut" class="manuel-statut"></div>
@@ -251,12 +332,29 @@
         <div id="version-appli" class="version-appli"></div>
     </div>
 
+    <div id="modale-destruction" class="modale-fond">
+        <div class="modale-boite">
+            <div class="modale-titre">🗑️ Détruire cette sauvegarde ?</div>
+            <div id="modale-message" class="modale-message"></div>
+            <label class="champ">Tape <strong>détruire</strong> pour confirmer
+                <input id="modale-saisie" type="text" autocomplete="off" autocapitalize="none"
+                       autocorrect="off" spellcheck="false" placeholder="détruire"
+                       oninput="verifierSaisieDestruction()">
+            </label>
+            <div class="modale-actions">
+                <button id="modale-confirmer" class="mini suppr" onclick="confirmerDestructionTrajet()" disabled>Détruire définitivement</button>
+                <button class="mini annuler" onclick="fermerModaleDestruction()">Annuler</button>
+            </div>
+            <div id="modale-statut" class="modale-statut"></div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.25.0';
+        const VERSION = '1.39.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -299,6 +397,7 @@
         const INTERVALLE_DETECTION = 120000;         // 2 min entre deux relevés
         const SEUIL_CONDUITE_MS    = 6.94;           // > 25 km/h ⇒ manifestement en voiture
         const SEUIL_ARRET_MS       = 1.4;            // < 5 km/h ⇒ arrêté / à pied
+        const SEUIL_MEME_PLACE     = 60;            // mètres : en deçà, on considère que c'est la MÊME place
         const DUREE_CONFIRMATION   = 30 * 60 * 1000; // 30 min d'arrêt après conduite ⇒ stationnement
         let detectionAuto = false;
         let idIntervalDetection = null;
@@ -442,19 +541,29 @@
         }
 
         // Sauvegarde à chaque changement : LOCAL d'abord (toujours), puis GitHub si configuré
+        // État RÉEL de la dernière tentative GitHub : 'inconnu' | 'ok' | 'echec'
+        let etatGitHub = 'inconnu';
         async function persister(){
             sauverCacheLocal();                       // mode local : garanti
             if (!configComplete()){ majMode(); return; }
-            try { await ecrireVersGitHub(); majSync("✅ Enregistré en local ET synchronisé sur GitHub.", '#34c759'); }
-            catch(e){ majSync("Enregistré en local. Mais GitHub a échoué :\n\n" + messageErreur(e), '#ff3b30'); }
+            try { await ecrireVersGitHub(); etatGitHub='ok'; majSync("✅ Enregistré en local ET synchronisé sur GitHub.", '#34c759'); }
+            catch(e){ etatGitHub='echec'; majSync("Enregistré en local. Mais GitHub a échoué :\n\n" + messageErreur(e), '#ff3b30'); }
             majMode();
         }
 
         function majSync(html, couleur){ const el=document.getElementById('sync-statut'); el.innerHTML=html; el.style.color=couleur||'#007aff'; }
         function majMode(){
             const el = document.getElementById('mode-stockage');
-            if (configComplete()){ el.textContent = "Stockage : local ✓  +  GitHub ✓"; el.style.color = '#34c759'; }
-            else { el.textContent = "Stockage : local ✓  (GitHub non configuré)"; el.style.color = '#86868b'; }
+            if (!configComplete()){
+                el.textContent = "Stockage : local ✓  (GitHub non configuré)"; el.style.color = '#86868b'; return;
+            }
+            if (etatGitHub==='ok'){
+                el.textContent = "Stockage : local ✓  +  GitHub ✓"; el.style.color = '#34c759';
+            } else if (etatGitHub==='echec'){
+                el.textContent = "Stockage : local ✓  +  GitHub ✗ (dernier échange échoué)"; el.style.color = '#ff3b30';
+            } else {
+                el.textContent = "Stockage : local ✓  +  GitHub ⏳ (configuré, pas encore vérifié)"; el.style.color = '#ff9500';
+            }
         }
 
         // ================= Config =================
@@ -550,9 +659,9 @@
                 } else if (local.length){
                     await ecrireVersGitHub();   // premier envoi : on initialise parkings.json
                 }
-                majSync("✅ Synchronisé. Historique fusionné (local + GitHub), rien n'a été perdu.", '#34c759');
+                etatGitHub='ok'; majSync("✅ Synchronisé. Historique fusionné (local + GitHub), rien n'a été perdu.", '#34c759');
                 idSelection = null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
-            } catch(e){ majSync("Stockage local conservé. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30'); }
+            } catch(e){ etatGitHub='echec'; majSync("Stockage local conservé. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30'); }
             majMode();
         }
 
@@ -597,7 +706,7 @@
 
                 if(seulLocal===0 && seulDistant===0){
                     diag.style.color='#34c759';
-                    diag.textContent="✅ Tout est à jour.\nLocal et GitHub contiennent les mêmes "+communs+" stationnement(s).";
+                    etatGitHub='ok'; diag.textContent="✅ Tout est à jour.\nLocal et GitHub contiennent les mêmes "+communs+" stationnement(s).";
                     majMode(); return;
                 }
                 // Différence → fusion non destructive (aucune perte), puis renvoi du tout
@@ -608,10 +717,10 @@
                 await ecrireVersGitHub();
                 idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
                 diag.style.color='#34c759';
-                diag.textContent="✅ Réparé : historique fusionné, rien n'a été perdu.\nLocal et GitHub contiennent désormais "+historique.length+" stationnement(s).";
+                etatGitHub='ok'; diag.textContent="✅ Réparé : historique fusionné, rien n'a été perdu.\nLocal et GitHub contiennent désormais "+historique.length+" stationnement(s).";
             }catch(e){
                 diag.style.color='#ff3b30';
-                diag.innerHTML="Le stockage local reste intact ("+nLocal+" entrée(s)).\n\n"+messageErreur(e);
+                etatGitHub='echec'; diag.innerHTML="Le stockage local reste intact ("+nLocal+" entrée(s)).\n\n"+messageErreur(e);
             }
             majMode();
         }
@@ -687,9 +796,8 @@
             majBoutonSuivi(); majEtatSuivi();
         }
         function demarrerSuivi(){ appliquerModeSuivi(); }
-        // Clic sur le bouton : off → éco → normal → off …
+        // Clic sur le bouton de la carte OU sur la ligne d'état : off → éco → normal → off …
         function basculerSuivi(){
-            if(!pleinEcran) return;
             modeSuivi = (modeSuivi==='off') ? 'eco' : (modeSuivi==='eco') ? 'normal' : 'off';
             appliquerModeSuivi();
         }
@@ -702,6 +810,7 @@
         }
         function surSuiviPosition(position){
             const lat=position.coords.latitude, lon=position.coords.longitude;
+            if(carte===null) assurerCarte(lat,lon,16);   // suivi lancé hors plein écran : on affiche la carte
             if(carte===null) return;
             if(marqueur===null){ marqueur=L.marker([lat,lon]).addTo(carte); marqueur.bindPopup('Tu es ici !'); }
             else marqueur.setLatLng([lat,lon]);
@@ -712,6 +821,14 @@
 
         // ===== Détection automatique du stationnement (voiture → arrêt prolongé) =====
         function distanceMetres(la1,lo1,la2,lo2){ return L.latLng(la1,lo1).distanceTo(L.latLng(la2,lo2)); }
+        // Renvoie le DERNIER stationnement s'il est au même endroit (donc consécutif), sinon null.
+        // Comparer uniquement au dernier garantit qu'un retour au même endroit APRÈS s'être garé
+        // ailleurs entre-temps est bien considéré comme un nouveau stationnement.
+        function memePlaceQueDernier(lat, lon){
+            if(!historique.length) return null;
+            const dernier = historique[historique.length-1];
+            return distanceMetres(dernier.lat, dernier.lon, lat, lon) < SEUIL_MEME_PLACE ? dernier : null;
+        }
         function statutDetection(txt, couleur){
             const el=document.getElementById('detection-statut'); if(!el) return;
             el.textContent=txt; el.style.color=couleur||'#007aff';
@@ -777,9 +894,8 @@
             echantillonPrec = {lat, lon, t};
         }
         async function ajouterStationnementDetecte(lat, lon, date){
-            const dernier = historique.length ? historique[historique.length-1] : null;
-            if(dernier && distanceMetres(dernier.lat, dernier.lon, lat, lon) < 60){
-                return { ok:false, raison:'doublon' };            // trop proche d'un stationnement existant
+            if(memePlaceQueDernier(lat, lon)){
+                return { ok:false, raison:'doublon' };            // même place que le dernier enregistré
             }
             const adresse = await recupererAdresseCourte(lat, lon);
             const entree = { id:Date.now(), lat, lon, adresse, date:(date||new Date()).toISOString(), note:'', auto:true };
@@ -1087,10 +1203,28 @@
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
             majAffichageHistorique(); majDistance();
         }
+        // Clic sur une pastille numérotée de la liste : centre la carte sur ce stationnement
+        function centrerSurStationnement(id){
+            const e = historique.find(x=>x.id===id); if(!e) return;
+            if(modeCorrection) annulerCorrection();
+            idSelection = id;
+            assurerCarte(e.lat, e.lon, 17);
+            carte.setView([e.lat, e.lon], 17);
+            afficherVoiture(e.lat, e.lon);
+            marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
+            const n = [...historique].sort((a,b)=> new Date(a.date)-new Date(b.date)).findIndex(x=>x.id===id)+1;
+            document.getElementById('statut-voiture').textContent = "📍 Carte centrée sur le stationnement n°"+n+".";
+            majAffichageHistorique(); majDistance();
+            document.getElementById('map').scrollIntoView({ behavior:'smooth', block:'center' });
+        }
         // « Voir » : sélectionne l'entrée ET révèle sa note (à l'unité)
-        function voirEntree(id){
-            idNoteVisible=id;
+        function voirEntree(id){            idNoteVisible=id;
             selectionnerEntree(id);   // re-rend la liste : la note de cette entrée apparaît
+            // En mode « afficher tous les stationnements », on ramène la carte au centre de l'écran
+            if(parcoursVisible){
+                const m=document.getElementById('map');
+                if(m) m.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
         }
         // Referme la note affichée à l'unité dès qu'on passe à autre chose
         function masquerNoteSelective(){
@@ -1104,6 +1238,16 @@
             statut.textContent="Enregistrement de la position de la voiture…";
             navigator.geolocation.getCurrentPosition(async (position)=>{
                 const lat=position.coords.latitude, lon=position.coords.longitude;
+                const dejaLa = memePlaceQueDernier(lat, lon);
+                if(dejaLa){
+                    const lieu = dejaLa.adresse ? echapper(dejaLa.adresse) : (dejaLa.lat.toFixed(5)+', '+dejaLa.lon.toFixed(5));
+                    idSelection = dejaLa.id;
+                    afficherVoiture(dejaLa.lat, dejaLa.lon); carte.setView([dejaLa.lat, dejaLa.lon],16);
+                    marqueurVoiture.bindPopup(popupVoiture(dejaLa)).openPopup();
+                    statut.innerHTML="ℹ️ Déjà enregistré ici le "+echapper(formaterDate(dejaLa.date))+" ("+lieu+") — pas de doublon créé.";
+                    majAffichageHistorique(); majDistance();
+                    return;
+                }
                 const adresse=await recupererAdresseCourte(lat,lon);
                 const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
                 historique.push(entree); idSelection=entree.id;
@@ -1135,6 +1279,18 @@
             if(res.erreur==="latitude"){ statut.textContent="❌ Latitude hors limites (doit être entre -90 et 90)."; statut.style.color='#ff3b30'; return; }
             if(res.erreur==="longitude"){ statut.textContent="❌ Longitude hors limites (doit être entre -180 et 180)."; statut.style.color='#ff3b30'; return; }
             const { lat, lon } = res;
+            const dejaLa = memePlaceQueDernier(lat, lon);
+            if(dejaLa){
+                const dejaLieu = dejaLa.adresse ? echapper(dejaLa.adresse) : (dejaLa.lat.toFixed(5)+', '+dejaLa.lon.toFixed(5));
+                statut.innerHTML="ℹ️ Ces coordonnées correspondent au dernier stationnement déjà enregistré le "+
+                    echapper(formaterDate(dejaLa.date))+" ("+dejaLieu+").\nAucun doublon n'a été créé.";
+                statut.style.color='#ff9500';
+                idSelection = dejaLa.id;
+                afficherVoiture(dejaLa.lat, dejaLa.lon); carte.setView([dejaLa.lat, dejaLa.lon],16);
+                marqueurVoiture.bindPopup(popupVoiture(dejaLa)).openPopup();
+                majAffichageHistorique(); majDistance();
+                return;
+            }
             statut.textContent="Enregistrement…"; statut.style.color='#007aff';
             const adresse=await recupererAdresseCourte(lat,lon);
             const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
@@ -1155,6 +1311,7 @@
                 bloc.innerHTML=''; titre.style.display='none';
                 if(parcoursVisible){ masquerParcours(); parcoursVisible=false;
                     const b=document.getElementById('btn-parcours'); b.classList.remove('actif'); b.textContent='🗺️ Afficher tous les stationnements'; }
+                majBoutonEffacer();
                 return;
             }
             titre.style.display='block';
@@ -1167,7 +1324,7 @@
                 const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 const actif=(e.id===idCourant)?' actif':'';
                 const pastille = parcoursVisible
-                    ? `<div class="pastille-parcours${e.id===idDerniere?' derniere':''}">${numeroParId.get(e.id)}</div>`
+                    ? `<div class="pastille-parcours cliquable${e.id===idDerniere?' derniere':''}" onclick="centrerSurStationnement(${e.id})" role="button" title="Centrer la carte sur ce stationnement">${numeroParId.get(e.id)}</div>`
                     : '';
                 const noteZone = (parcoursVisible || e.id===idNoteVisible)
                     ? `<div class="note-zone" contenteditable="false" data-placeholder="Double-cliquez pour écrire une note…" ondblclick="activerNote(this)" onblur="sauverNote(this, ${e.id})" onkeydown="toucheNote(event, this)">${echapper(e.note)}</div>`
@@ -1175,6 +1332,7 @@
                 return `<div class="histo-item${actif}"><div class="histo-ligne"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir" onclick="voirEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>${noteZone}</div>`;
             }).join('');
             rafraichirParcours();
+            majBoutonEffacer();
         }
 
         // ===== Notes par stationnement (visibles seulement quand le trajet est affiché) =====
@@ -1346,6 +1504,11 @@
                 className:'', iconSize:[24,24], iconAnchor:[12,12], popupAnchor:[0,-12]
             });
         }
+        // Ouvre Google Maps centré sur un point précis (depuis la bulle d'une pastille)
+        function ouvrirGoogleMaps(lat, lon){
+            const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon);
+            window.open(url, '_blank');
+        }
         function construireParcours(){
             const groupe = L.layerGroup();
             const entrees = [...historique].sort((a,b)=> new Date(a.date) - new Date(b.date)); // ordre chronologique
@@ -1357,7 +1520,8 @@
                 const estDerniere = (i === entrees.length-1);
                 const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere) })
-                    .bindPopup('#'+(i+1)+' — '+formaterDate(e.date)+'<br>'+lieu)
+                    .bindPopup('#'+(i+1)+' — '+formaterDate(e.date)+'<br>'+lieu+
+                               '<br><button class="mini voir popup-gmaps" onclick="ouvrirGoogleMaps('+e.lat+','+e.lon+')">🗺️ Ouvrir dans Google Maps</button>')
                     .addTo(groupe);
             });
             return groupe;
@@ -1400,6 +1564,318 @@
         }
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
+
+        // ================= Sauvegardes de trajets (dossier trajets/ sur GitHub) =================
+        const DOSSIER_TRAJETS = 'trajets';
+        const CLE_SIGNATURE = 'signature_sauvegarde';
+        function hachage(txt){ let h=5381; for(let i=0;i<txt.length;i++){ h=(((h<<5)+h)^txt.charCodeAt(i))>>>0; } return h.toString(36); }
+        // Empreinte du contenu actuel : change dès qu'un stationnement est ajouté, modifié ou supprimé
+        function signatureHistorique(){
+            const base=[...historique].sort((a,b)=>a.id-b.id)
+                .map(e=>[e.id,e.date,e.lat,e.lon,e.adresse||'',e.note||''].join('~')).join('|');
+            return hachage(base)+'.'+historique.length;
+        }
+        function marquerSauvegarde(){ try{ localStorage.setItem(CLE_SIGNATURE, signatureHistorique()); }catch(e){} majBoutonEffacer(); }
+        function estSauvegarde(){
+            if(!historique.length) return false;
+            let s=null; try{ s=localStorage.getItem(CLE_SIGNATURE); }catch(e){}
+            return s!==null && s===signatureHistorique();
+        }
+        function majBoutonEffacer(){
+            const b=document.getElementById('btn-effacer'); if(!b) return;
+            const ok=estSauvegarde();
+            b.disabled=!ok;
+            b.textContent = ok ? '🗑️ Effacer tout le contenu'
+                               : (historique.length ? '🗑️ Effacer (sauvegarde requise)' : '🗑️ Effacer (aucun contenu)');
+        }
+        function statutTrajets(html, couleur){
+            const el=document.getElementById('trajets-statut'); if(!el) return;
+            el.innerHTML=html; el.style.color=couleur||'#007aff';
+        }
+        function deuxChiffres(n){ return (n<10?'0':'')+n; }
+        function nomFichierTrajet(nom){
+            const d=new Date();
+            const horodatage = d.getFullYear()+'-'+deuxChiffres(d.getMonth()+1)+'-'+deuxChiffres(d.getDate())
+                             +' '+deuxChiffres(d.getHours())+'h'+deuxChiffres(d.getMinutes());
+            const propre=(nom||'').trim().replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').slice(0,60);
+            return 'Trajet '+horodatage+(propre?' '+propre:'')+'.json';   // « Trajet » toujours avant la date
+        }
+        function apiTrajet(fichier){
+            return 'https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/contents/'+DOSSIER_TRAJETS+'/'+encodeURIComponent(fichier);
+        }
+        function prerequisTrajets(){
+            if(!configComplete()){
+                statutTrajets("❌ Dépôt, token et phrase de passe sont requis.\n→ Renseigne-les dans « ⚙️ Synchronisation GitHub », puis réessaie.", '#ff3b30');
+                return false;
+            }
+            return true;
+        }
+
+        async function sauvegarderTrajet(){
+            if(!prerequisTrajets()) return;
+            if(!historique.length){ statutTrajets("❌ Aucun stationnement à sauvegarder.", '#ff3b30'); return; }
+            const nom=document.getElementById('nom-trajet').value;
+            const fichier=nomFichierTrajet(nom);
+            statutTrajets("💾 Sauvegarde de « "+echapper(fichier)+" » en cours…");
+            try{
+                const paquet=await chiffrer({ type:'trajet', nom:(nom||'').trim(), exporte:new Date().toISOString(), entrees:historique }, passphrase);
+                const contenu=b64FromBytes(new TextEncoder().encode(JSON.stringify(paquet)));
+                const r=await fetch(apiTrajet(fichier), { method:'PUT', headers: enTetes(),
+                    body: JSON.stringify({ message:'Sauvegarde '+fichier, content:contenu, branch:branche }) });
+                if(!r.ok) throw await erreurHttp(r);
+                marquerSauvegarde();
+                statutTrajets("✅ Sauvegardé : "+echapper(fichier)+"\n"+historique.length+" stationnement(s). Tu peux maintenant effacer le contenu si tu le souhaites.", '#34c759');
+                document.getElementById('nom-trajet').value='';
+                listerTrajets();
+            }catch(e){ statutTrajets("La sauvegarde a échoué :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        async function listerTrajets(){
+            if(!prerequisTrajets()) return;
+            const bloc=document.getElementById('liste-trajets');
+            bloc.innerHTML='<div class="trajet-vide">Chargement de la liste…</div>';
+            try{
+                const r=await fetch('https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/contents/'+DOSSIER_TRAJETS
+                                    +'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+                if(r.status===404){ bloc.innerHTML='<div class="trajet-vide">Aucune sauvegarde pour l\'instant.</div>'; return; }
+                if(!r.ok) throw await erreurHttp(r);
+                const fichiers=(await r.json()).filter(f=>f.type==='file' && /\.json$/i.test(f.name))
+                                              .sort((a,b)=> b.name.localeCompare(a.name));   // plus récent en premier
+                if(!fichiers.length){ bloc.innerHTML='<div class="trajet-vide">Aucune sauvegarde pour l\'instant.</div>'; return; }
+                bloc.innerHTML=fichiers.map(f=>{
+                    const n=encodeURIComponent(f.name).replace(/'/g,"%27");
+                    return '<div class="trajet-item"><div class="trajet-nom">'+echapper(f.name)+'</div>'+
+                        '<div class="histo-actions">'+
+                        '<button class="mini voir" onclick="chargerTrajet(\''+n+'\')">Charger</button>'+
+                        '<button class="mini suppr" onclick="demanderDestructionTrajet(\''+n+'\')">🗑️</button>'+
+                        '</div></div>';
+                }).join('');
+            }catch(e){ bloc.innerHTML=''; statutTrajets("Lecture de la liste impossible :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        async function chargerTrajet(fichierEncode){
+            if(!prerequisTrajets()) return;
+            const fichier=decodeURIComponent(fichierEncode);
+            statutTrajets("📥 Chargement de « "+echapper(fichier)+" »…");
+            try{
+                const r=await fetch(apiTrajet(fichier)+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+                if(!r.ok) throw await erreurHttp(r);
+                const d=await r.json();
+                const texte=new TextDecoder().decode(bytesFromB64(d.content));
+                const donnees=await dechiffrer(JSON.parse(texte), passphrase);
+                const entrees=Array.isArray(donnees) ? donnees : (donnees.entrees||[]);
+                if(!entrees.length){ statutTrajets("⚠️ Cette sauvegarde ne contient aucun stationnement.", '#ff9500'); return; }
+                const avant=historique.length;
+                historique=fusionner(historique, entrees);          // union par id, triée par date
+                sauverCacheLocal();
+                idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
+                const ajoutes=historique.length-avant;
+                statutTrajets("✅ « "+echapper(fichier)+" » chargé.\n"+ajoutes+" stationnement(s) ajouté(s) — total : "+historique.length+", classés par date.", '#34c759');
+                await persister();
+                majBoutonEffacer();
+            }catch(e){ statutTrajets("Chargement impossible :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        // ===== Destruction d'un fichier de sauvegarde (confirmation par saisie) =====
+        let trajetASupprimer = null;   // { fichier, sha, nb }
+        function normaliserMot(v){
+            return (v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        }
+        function verifierSaisieDestruction(){
+            const b=document.getElementById('modale-confirmer');
+            b.disabled = normaliserMot(document.getElementById('modale-saisie').value) !== 'detruire';
+        }
+        function fermerModaleDestruction(){
+            document.getElementById('modale-destruction').classList.remove('ouvert');
+            document.getElementById('modale-saisie').value='';
+            document.getElementById('modale-confirmer').disabled=true;
+            document.getElementById('modale-statut').textContent='';
+            trajetASupprimer=null;
+        }
+        async function demanderDestructionTrajet(fichierEncode){
+            if(!prerequisTrajets()) return;
+            const fichier=decodeURIComponent(fichierEncode);
+            statutTrajets("🔎 Lecture de « "+echapper(fichier)+" » avant destruction…");
+            try{
+                const r=await fetch(apiTrajet(fichier)+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+                if(!r.ok) throw await erreurHttp(r);
+                const d=await r.json();
+                let nb=null;   // null = contenu illisible (phrase de passe différente)
+                try{
+                    const texte=new TextDecoder().decode(bytesFromB64(d.content));
+                    const donnees=await dechiffrer(JSON.parse(texte), passphrase);
+                    const entrees=Array.isArray(donnees)?donnees:(donnees.entrees||[]);
+                    nb=entrees.length;
+                }catch(_){}
+                trajetASupprimer={ fichier, sha:d.sha, nb };
+                const compte = (nb===null)
+                    ? "⚠️ Contenu illisible avec la phrase de passe actuelle : impossible de compter les stationnements."
+                    : "Ce fichier contient " + nb + " place" + (nb>1?"s":"") + " de parking mémorisée" + (nb>1?"s":"") + ".";
+                document.getElementById('modale-message').textContent =
+                    "Fichier : " + fichier + "\n\n" + compte +
+                    "\n\nCette destruction est définitive et supprimera le fichier sur GitHub.";
+                statutTrajets('');
+                const modale=document.getElementById('modale-destruction');
+                modale.classList.add('ouvert');
+                document.getElementById('modale-saisie').value='';
+                document.getElementById('modale-confirmer').disabled=true;
+                setTimeout(()=>{ try{ document.getElementById('modale-saisie').focus(); }catch(e){} }, 250);
+            }catch(e){ statutTrajets("Impossible de lire ce fichier :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+        async function confirmerDestructionTrajet(){
+            if(!trajetASupprimer) { fermerModaleDestruction(); return; }
+            if(normaliserMot(document.getElementById('modale-saisie').value) !== 'detruire'){
+                document.getElementById('modale-statut').textContent="❌ Saisis exactement « détruire » pour confirmer.";
+                document.getElementById('modale-statut').style.color='#ff3b30';
+                return;
+            }
+            const { fichier, sha } = trajetASupprimer;
+            const st=document.getElementById('modale-statut');
+            st.style.color='#007aff'; st.textContent="Destruction en cours…";
+            try{
+                const r=await fetch(apiTrajet(fichier), { method:'DELETE', headers: enTetes(),
+                    body: JSON.stringify({ message:'Suppression '+fichier, sha, branch:branche }) });
+                if(!r.ok) throw await erreurHttp(r);
+                fermerModaleDestruction();
+                statutTrajets("🗑️ Sauvegarde détruite : "+echapper(fichier), '#34c759');
+                listerTrajets();
+            }catch(e){
+                st.style.color='#ff3b30';
+                st.innerHTML="La destruction a échoué :\n\n"+messageErreur(e);
+            }
+        }
+
+        async function effacerTout(){            if(!estSauvegarde()){
+                statutTrajets("❌ Effacement refusé : le contenu actuel n'a pas été sauvegardé.\n→ Fais d'abord « 💾 Sauvegarder le trajet actuel ».", '#ff3b30');
+                majBoutonEffacer(); return;
+            }
+            if(!confirm("Effacer les "+historique.length+" stationnement(s) ?\nUne sauvegarde existe, tu pourras les recharger.")) return;
+            historique=[]; idSelection=null; idNoteVisible=null;
+            if(parcoursVisible) basculerParcours();
+            if(marqueurVoiture && carte){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
+            sauverCacheLocal();
+            majAffichageHistorique(); majDistance(); majAdresseVoiture();
+            statutTrajets("🗑️ Contenu effacé. Recharge une sauvegarde quand tu veux.", '#34c759');
+            await persister();
+            majBoutonEffacer();
+        }
+
+
+        // ================= Texte récapitulatif (prompt pour une IA) =================
+        const CONSIGNE_DEFAUT = "Rédige un récit de voyage fluide et littéraire à partir des étapes ci-dessous. Ne reprends pas les heures exactes, les adresses ou les coordonnées GPS sous forme de liste : intègre simplement les lieux et les moments de la journée de manière naturelle dans le texte.";
+        const CLE_CONSIGNE = 'consigne_recap';
+        let consigneCourante = null;   // secours si localStorage est indisponible (navigation privée)
+        function chargerConsigne(){
+            let c = null;
+            try { c = localStorage.getItem(CLE_CONSIGNE); } catch(e){}
+            if(c===null || c==='') c = consigneCourante;            // repli mémoire
+            return (c===null || c===undefined || c==='') ? CONSIGNE_DEFAUT : c;
+        }
+        function sauverConsigne(){
+            const z=document.getElementById('texte-consigne'); if(!z) return;
+            consigneCourante = z.value;
+            try { localStorage.setItem(CLE_CONSIGNE, z.value); } catch(e){}
+            statutRecap("Requête modifiée (conservée). Touche « Copier l'ensemble » pour la copier.", '#86868b');
+        }
+        function reinitialiserConsigne(){
+            const z=document.getElementById('texte-consigne'); if(!z) return;
+            z.value = CONSIGNE_DEFAUT;
+            consigneCourante = CONSIGNE_DEFAUT;
+            try { localStorage.setItem(CLE_CONSIGNE, CONSIGNE_DEFAUT); } catch(e){}
+            statutRecap("↩︎ Requête par défaut rétablie.", '#007aff');
+        }
+        function formaterDateLongue(iso){
+            return new Date(iso).toLocaleString('fr-FR',
+                { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        }
+        // Corps seul : la liste des stationnements (sans la consigne)
+        function genererCorpsRecap(){
+            if(!historique.length) return "(Aucun stationnement enregistré pour le moment.)";
+            let t = '';
+            const entrees = [...historique].sort((a,b)=> new Date(a.date) - new Date(b.date));  // ordre chronologique
+            entrees.forEach((e, i)=>{
+                const lieu = (e.adresse && e.adresse.trim())
+                    ? e.adresse.trim()
+                    : "adresse inconnue (coordonnées : " + e.lat.toFixed(6) + ", " + e.lon.toFixed(6) + ")";
+                t += (i+1) + ". Le " + formaterDateLongue(e.date) + "\n";
+                t += "   Lieu : " + lieu + "\n";
+                const note = (e.note || '').trim();
+                if(note) t += "   Commentaire : " + note.replace(/\s*\n\s*/g, ' / ') + "\n";
+                t += "\n";
+            });
+            t += "Nombre total de stationnements : " + entrees.length + ".";
+            return t;
+        }
+        // Ce qui part dans le presse-papier : consigne (telle qu'éditée) + corps
+        function texteCompletRecap(){
+            const consigne = (document.getElementById('texte-consigne').value || '').trim();
+            const corps = document.getElementById('texte-recap').value;
+            return (consigne ? consigne + "\n\n" : '') + corps;
+        }
+        function statutRecap(txt, couleur){
+            const el=document.getElementById('recap-statut'); if(!el) return;
+            el.textContent = txt; el.style.color = couleur || '#86868b';
+        }
+        // Libellés du bouton + confirmation temporaire de la copie
+        const LIBELLE_RECAP_FERME = "📖 Texte pour l'IA (en faire une histoire)";
+        const LIBELLE_RECAP_OUVERT = "📖 Masquer le texte pour l'IA";
+        let minuteurConfirmation = null;
+        function libelleBoutonRecap(){
+            const ouvert = document.getElementById('panneau-recap').classList.contains('ouvert');
+            return ouvert ? LIBELLE_RECAP_OUVERT : LIBELLE_RECAP_FERME;
+        }
+        function confirmerCopieSurBouton(){
+            const btn=document.getElementById('btn-recap'); if(!btn) return;
+            if(minuteurConfirmation) clearTimeout(minuteurConfirmation);
+            btn.classList.add('copie');
+            btn.textContent = "✅ Copié dans le presse-papier !";
+            minuteurConfirmation = setTimeout(()=>{
+                btn.classList.remove('copie');
+                btn.textContent = libelleBoutonRecap();
+                minuteurConfirmation = null;
+            }, 2500);
+        }
+        async function copierRecap(){
+            const texte = texteCompletRecap();
+            try{
+                if(navigator.clipboard && window.isSecureContext){
+                    await navigator.clipboard.writeText(texte);
+                    statutRecap("✅ Requête + récapitulatif copiés dans le presse-papier.", '#34c759');
+                    confirmerCopieSurBouton();
+                    return true;
+                }
+                throw new Error('clipboard indisponible');
+            }catch(e){
+                // Repli : zone temporaire sélectionnée puis copie (iOS bloque parfois la copie automatique)
+                try{
+                    const tmp=document.createElement('textarea');
+                    tmp.value=texte; tmp.style.position='fixed'; tmp.style.opacity='0';
+                    document.body.appendChild(tmp);
+                    tmp.focus(); tmp.setSelectionRange(0, texte.length);
+                    const ok = document.execCommand && document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    if(ok){ statutRecap("✅ Requête + récapitulatif copiés dans le presse-papier.", '#34c759'); confirmerCopieSurBouton(); return true; }
+                }catch(_){}
+                statutRecap("⚠️ Copie automatique refusée par le navigateur.\n→ Appuie longuement dans une zone de texte puis « Tout sélectionner » et « Copier ».", '#ff9500');
+                return false;
+            }
+        }
+        function basculerRecap(){
+            const btn=document.getElementById('btn-recap');
+            const panneau=document.getElementById('panneau-recap');
+            if(panneau.classList.contains('ouvert')){
+                panneau.classList.remove('ouvert');
+                btn.classList.remove('actif','copie'); btn.textContent=LIBELLE_RECAP_FERME;
+                statutRecap('');
+                return;
+            }
+            document.getElementById('texte-consigne').value = chargerConsigne();
+            document.getElementById('texte-recap').value = genererCorpsRecap();
+            panneau.classList.add('ouvert');
+            btn.classList.add('actif'); btn.textContent=LIBELLE_RECAP_OUVERT;
+            statutRecap("Copie en cours…", '#007aff');
+            copierRecap();   // copie automatique dès l'ouverture
+        }
 
         // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
         function itineraireVersVoiture(){
@@ -1461,6 +1937,7 @@
             try { detectionAuto = (localStorage.getItem(CLE_DETECTION)==='1'); } catch(e){ detectionAuto=false; }
             majBoutonDetection();
             majEtatSuivi();
+            majBoutonEffacer();
             if(detectionAuto) demarrerDetection();
             document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && detectionAuto) echantillonner(); });
 
@@ -1481,10 +1958,10 @@
                     } else if(local.length){
                         await ecrireVersGitHub();
                     }
-                    majSync("✅ Synchronisé (local + GitHub).", '#34c759');
+                    etatGitHub='ok'; majSync("✅ Synchronisé (local + GitHub).", '#34c759');
                     idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
                 }catch(e){
-                    majSync("Le stockage local reste actif. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30');
+                    etatGitHub='echec'; majSync("Le stockage local reste actif. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30');
                 }
                 majMode();
             }
