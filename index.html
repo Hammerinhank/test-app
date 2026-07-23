@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.25.0</title>
+    <title>Ma Géolocalisation — v1.26.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -60,7 +60,7 @@
         #btn-suivi.eco { background: #ff9500; color: #fff; }
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
-        .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
+        .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
         .etat-suivi.off { background: #f0f0f2; color: #86868b; }
         .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
         .etat-suivi.normal { background: #eaf7ee; color: #248a3d; }
@@ -164,7 +164,7 @@
         <div id="statut-voiture" class="statut"></div>
         <div id="distance" class="distance"></div>
         <div id="adresse-voiture" class="adresse-voiture"></div>
-        <div id="etat-suivi" class="etat-suivi off">Suivi de position : ⏸️ OFF</div>
+        <div id="etat-suivi" class="etat-suivi off" onclick="basculerSuivi()" role="button" tabindex="0">Suivi de position : ⏸️ OFF</div>
         <div id="bloc-info" class="info"></div>
         <div id="map"></div>
         <div id="barre-carte">
@@ -256,7 +256,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.25.0';
+        const VERSION = '1.26.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -687,9 +687,8 @@
             majBoutonSuivi(); majEtatSuivi();
         }
         function demarrerSuivi(){ appliquerModeSuivi(); }
-        // Clic sur le bouton : off → éco → normal → off …
+        // Clic sur le bouton de la carte OU sur la ligne d'état : off → éco → normal → off …
         function basculerSuivi(){
-            if(!pleinEcran) return;
             modeSuivi = (modeSuivi==='off') ? 'eco' : (modeSuivi==='eco') ? 'normal' : 'off';
             appliquerModeSuivi();
         }
@@ -702,6 +701,7 @@
         }
         function surSuiviPosition(position){
             const lat=position.coords.latitude, lon=position.coords.longitude;
+            if(carte===null) assurerCarte(lat,lon,16);   // suivi lancé hors plein écran : on affiche la carte
             if(carte===null) return;
             if(marqueur===null){ marqueur=L.marker([lat,lon]).addTo(carte); marqueur.bindPopup('Tu es ici !'); }
             else marqueur.setLatLng([lat,lon]);
