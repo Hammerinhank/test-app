@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.27.0</title>
+    <title>Ma Géolocalisation — v1.28.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -113,6 +113,8 @@
             border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
         }
         .pastille-parcours.derniere { background: #34c759; }
+        .pastille-parcours.cliquable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .pastille-parcours.cliquable:active { transform: scale(0.88); }
         .correction { display: none; margin-top: 12px; padding: 14px; background: #fff8ec; border: 2px solid #ff9500; border-radius: 12px; }
         .correction.ouvert { display: block; }
         .correction-txt { font-size: 13px; font-weight: 600; color: #1d1d1f; line-height: 1.5; text-align: left; margin-bottom: 12px; white-space: pre-line; }
@@ -256,7 +258,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.27.0';
+        const VERSION = '1.28.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1096,6 +1098,20 @@
             afficherVoiture(e.lat,e.lon); carte.setView([e.lat,e.lon],17);
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
             majAffichageHistorique(); majDistance();
+        }
+        // Clic sur une pastille numérotée de la liste : centre la carte sur ce stationnement
+        function centrerSurStationnement(id){
+            const e = historique.find(x=>x.id===id); if(!e) return;
+            if(modeCorrection) annulerCorrection();
+            idSelection = id;
+            assurerCarte(e.lat, e.lon, 17);
+            carte.setView([e.lat, e.lon], 17);
+            afficherVoiture(e.lat, e.lon);
+            marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
+            const n = [...historique].sort((a,b)=> new Date(a.date)-new Date(b.date)).findIndex(x=>x.id===id)+1;
+            document.getElementById('statut-voiture').textContent = "📍 Carte centrée sur le stationnement n°"+n+".";
+            majAffichageHistorique(); majDistance();
+            document.getElementById('map').scrollIntoView({ behavior:'smooth', block:'center' });
         }
         // « Voir » : sélectionne l'entrée ET révèle sa note (à l'unité)
         function voirEntree(id){            idNoteVisible=id;
