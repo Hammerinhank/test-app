@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.26.0</title>
+    <title>Ma Géolocalisation — v1.27.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -256,7 +256,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.26.0';
+        const VERSION = '1.27.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -442,19 +442,29 @@
         }
 
         // Sauvegarde à chaque changement : LOCAL d'abord (toujours), puis GitHub si configuré
+        // État RÉEL de la dernière tentative GitHub : 'inconnu' | 'ok' | 'echec'
+        let etatGitHub = 'inconnu';
         async function persister(){
             sauverCacheLocal();                       // mode local : garanti
             if (!configComplete()){ majMode(); return; }
-            try { await ecrireVersGitHub(); majSync("✅ Enregistré en local ET synchronisé sur GitHub.", '#34c759'); }
-            catch(e){ majSync("Enregistré en local. Mais GitHub a échoué :\n\n" + messageErreur(e), '#ff3b30'); }
+            try { await ecrireVersGitHub(); etatGitHub='ok'; majSync("✅ Enregistré en local ET synchronisé sur GitHub.", '#34c759'); }
+            catch(e){ etatGitHub='echec'; majSync("Enregistré en local. Mais GitHub a échoué :\n\n" + messageErreur(e), '#ff3b30'); }
             majMode();
         }
 
         function majSync(html, couleur){ const el=document.getElementById('sync-statut'); el.innerHTML=html; el.style.color=couleur||'#007aff'; }
         function majMode(){
             const el = document.getElementById('mode-stockage');
-            if (configComplete()){ el.textContent = "Stockage : local ✓  +  GitHub ✓"; el.style.color = '#34c759'; }
-            else { el.textContent = "Stockage : local ✓  (GitHub non configuré)"; el.style.color = '#86868b'; }
+            if (!configComplete()){
+                el.textContent = "Stockage : local ✓  (GitHub non configuré)"; el.style.color = '#86868b'; return;
+            }
+            if (etatGitHub==='ok'){
+                el.textContent = "Stockage : local ✓  +  GitHub ✓"; el.style.color = '#34c759';
+            } else if (etatGitHub==='echec'){
+                el.textContent = "Stockage : local ✓  +  GitHub ✗ (dernier échange échoué)"; el.style.color = '#ff3b30';
+            } else {
+                el.textContent = "Stockage : local ✓  +  GitHub ⏳ (configuré, pas encore vérifié)"; el.style.color = '#ff9500';
+            }
         }
 
         // ================= Config =================
@@ -550,9 +560,9 @@
                 } else if (local.length){
                     await ecrireVersGitHub();   // premier envoi : on initialise parkings.json
                 }
-                majSync("✅ Synchronisé. Historique fusionné (local + GitHub), rien n'a été perdu.", '#34c759');
+                etatGitHub='ok'; majSync("✅ Synchronisé. Historique fusionné (local + GitHub), rien n'a été perdu.", '#34c759');
                 idSelection = null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
-            } catch(e){ majSync("Stockage local conservé. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30'); }
+            } catch(e){ etatGitHub='echec'; majSync("Stockage local conservé. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30'); }
             majMode();
         }
 
@@ -597,7 +607,7 @@
 
                 if(seulLocal===0 && seulDistant===0){
                     diag.style.color='#34c759';
-                    diag.textContent="✅ Tout est à jour.\nLocal et GitHub contiennent les mêmes "+communs+" stationnement(s).";
+                    etatGitHub='ok'; diag.textContent="✅ Tout est à jour.\nLocal et GitHub contiennent les mêmes "+communs+" stationnement(s).";
                     majMode(); return;
                 }
                 // Différence → fusion non destructive (aucune perte), puis renvoi du tout
@@ -608,10 +618,10 @@
                 await ecrireVersGitHub();
                 idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
                 diag.style.color='#34c759';
-                diag.textContent="✅ Réparé : historique fusionné, rien n'a été perdu.\nLocal et GitHub contiennent désormais "+historique.length+" stationnement(s).";
+                etatGitHub='ok'; diag.textContent="✅ Réparé : historique fusionné, rien n'a été perdu.\nLocal et GitHub contiennent désormais "+historique.length+" stationnement(s).";
             }catch(e){
                 diag.style.color='#ff3b30';
-                diag.innerHTML="Le stockage local reste intact ("+nLocal+" entrée(s)).\n\n"+messageErreur(e);
+                etatGitHub='echec'; diag.innerHTML="Le stockage local reste intact ("+nLocal+" entrée(s)).\n\n"+messageErreur(e);
             }
             majMode();
         }
@@ -1481,10 +1491,10 @@
                     } else if(local.length){
                         await ecrireVersGitHub();
                     }
-                    majSync("✅ Synchronisé (local + GitHub).", '#34c759');
+                    etatGitHub='ok'; majSync("✅ Synchronisé (local + GitHub).", '#34c759');
                     idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
                 }catch(e){
-                    majSync("Le stockage local reste actif. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30');
+                    etatGitHub='echec'; majSync("Le stockage local reste actif. Synchro GitHub impossible :\n\n" + messageErreur(e), '#ff3b30');
                 }
                 majMode();
             }
