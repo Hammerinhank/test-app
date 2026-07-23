@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.28.0</title>
+    <title>Ma Géolocalisation — v1.29.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -258,7 +258,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.28.0';
+        const VERSION = '1.29.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -301,6 +301,7 @@
         const INTERVALLE_DETECTION = 120000;         // 2 min entre deux relevés
         const SEUIL_CONDUITE_MS    = 6.94;           // > 25 km/h ⇒ manifestement en voiture
         const SEUIL_ARRET_MS       = 1.4;            // < 5 km/h ⇒ arrêté / à pied
+        const SEUIL_MEME_PLACE     = 60;            // mètres : en deçà, on considère que c'est la MÊME place
         const DUREE_CONFIRMATION   = 30 * 60 * 1000; // 30 min d'arrêt après conduite ⇒ stationnement
         let detectionAuto = false;
         let idIntervalDetection = null;
@@ -724,6 +725,14 @@
 
         // ===== Détection automatique du stationnement (voiture → arrêt prolongé) =====
         function distanceMetres(la1,lo1,la2,lo2){ return L.latLng(la1,lo1).distanceTo(L.latLng(la2,lo2)); }
+        // Renvoie le DERNIER stationnement s'il est au même endroit (donc consécutif), sinon null.
+        // Comparer uniquement au dernier garantit qu'un retour au même endroit APRÈS s'être garé
+        // ailleurs entre-temps est bien considéré comme un nouveau stationnement.
+        function memePlaceQueDernier(lat, lon){
+            if(!historique.length) return null;
+            const dernier = historique[historique.length-1];
+            return distanceMetres(dernier.lat, dernier.lon, lat, lon) < SEUIL_MEME_PLACE ? dernier : null;
+        }
         function statutDetection(txt, couleur){
             const el=document.getElementById('detection-statut'); if(!el) return;
             el.textContent=txt; el.style.color=couleur||'#007aff';
@@ -789,9 +798,8 @@
             echantillonPrec = {lat, lon, t};
         }
         async function ajouterStationnementDetecte(lat, lon, date){
-            const dernier = historique.length ? historique[historique.length-1] : null;
-            if(dernier && distanceMetres(dernier.lat, dernier.lon, lat, lon) < 60){
-                return { ok:false, raison:'doublon' };            // trop proche d'un stationnement existant
+            if(memePlaceQueDernier(lat, lon)){
+                return { ok:false, raison:'doublon' };            // même place que le dernier enregistré
             }
             const adresse = await recupererAdresseCourte(lat, lon);
             const entree = { id:Date.now(), lat, lon, adresse, date:(date||new Date()).toISOString(), note:'', auto:true };
@@ -1129,6 +1137,16 @@
             statut.textContent="Enregistrement de la position de la voiture…";
             navigator.geolocation.getCurrentPosition(async (position)=>{
                 const lat=position.coords.latitude, lon=position.coords.longitude;
+                const dejaLa = memePlaceQueDernier(lat, lon);
+                if(dejaLa){
+                    const lieu = dejaLa.adresse ? echapper(dejaLa.adresse) : (dejaLa.lat.toFixed(5)+', '+dejaLa.lon.toFixed(5));
+                    idSelection = dejaLa.id;
+                    afficherVoiture(dejaLa.lat, dejaLa.lon); carte.setView([dejaLa.lat, dejaLa.lon],16);
+                    marqueurVoiture.bindPopup(popupVoiture(dejaLa)).openPopup();
+                    statut.innerHTML="ℹ️ Déjà enregistré ici le "+echapper(formaterDate(dejaLa.date))+" ("+lieu+") — pas de doublon créé.";
+                    majAffichageHistorique(); majDistance();
+                    return;
+                }
                 const adresse=await recupererAdresseCourte(lat,lon);
                 const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
                 historique.push(entree); idSelection=entree.id;
@@ -1160,6 +1178,18 @@
             if(res.erreur==="latitude"){ statut.textContent="❌ Latitude hors limites (doit être entre -90 et 90)."; statut.style.color='#ff3b30'; return; }
             if(res.erreur==="longitude"){ statut.textContent="❌ Longitude hors limites (doit être entre -180 et 180)."; statut.style.color='#ff3b30'; return; }
             const { lat, lon } = res;
+            const dejaLa = memePlaceQueDernier(lat, lon);
+            if(dejaLa){
+                const dejaLieu = dejaLa.adresse ? echapper(dejaLa.adresse) : (dejaLa.lat.toFixed(5)+', '+dejaLa.lon.toFixed(5));
+                statut.innerHTML="ℹ️ Ces coordonnées correspondent au dernier stationnement déjà enregistré le "+
+                    echapper(formaterDate(dejaLa.date))+" ("+dejaLieu+").\nAucun doublon n'a été créé.";
+                statut.style.color='#ff9500';
+                idSelection = dejaLa.id;
+                afficherVoiture(dejaLa.lat, dejaLa.lon); carte.setView([dejaLa.lat, dejaLa.lon],16);
+                marqueurVoiture.bindPopup(popupVoiture(dejaLa)).openPopup();
+                majAffichageHistorique(); majDistance();
+                return;
+            }
             statut.textContent="Enregistrement…"; statut.style.color='#007aff';
             const adresse=await recupererAdresseCourte(lat,lon);
             const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
