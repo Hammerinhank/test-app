@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.29.0</title>
+    <title>Ma Géolocalisation — v1.30.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -60,6 +60,16 @@
         #btn-suivi.eco { background: #ff9500; color: #fff; }
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
+        #btn-recit.actif { background: #5856d6; color: #fff; }
+        #btn-recit.actif:active { background: #3f3ea8; }
+        .recit { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; text-align: left; }
+        .recit.ouvert { display: block; }
+        .recit-info { font-size: 12px; font-weight: 600; color: #86868b; margin-bottom: 8px; white-space: pre-line; line-height: 1.4; }
+        .recit-texte {
+            width: 100%; box-sizing: border-box; height: 260px; padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5;
+            color: #1d1d1f; background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; resize: vertical;
+        }
         .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
         .etat-suivi.off { background: #f0f0f2; color: #86868b; }
         .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
@@ -106,6 +116,18 @@
         #btn-corriger.actif { background: #ff9500; color: white; }
         #btn-corriger.actif:active { background: #cc7700; }
         #btn-parcours.actif { background: #007aff; color: white; }
+        #btn-recap.actif { background: #5856d6; color: #fff; }
+        #btn-recap.actif:active { background: #3f3ea8; }
+        .recap { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; }
+        .recap.ouvert { display: block; }
+        .recap-zone {
+            width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 12px; line-height: 1.5; color: #1d1d1f; background: #fff;
+            border: 1px solid #d1d1d6; border-radius: 8px; padding: 10px; resize: vertical;
+        }
+        .recap-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .recap-actions .mini { flex: 1; padding: 12px 8px; font-size: 15px; }
+        .recap-statut { margin-top: 10px; font-size: 13px; font-weight: 600; white-space: pre-line; line-height: 1.4; text-align: left; }
         #btn-parcours.actif:active { background: #0051d5; }
         .pastille-parcours {
             width: 24px; height: 24px; border-radius: 50%; background: #007aff; color: #fff;
@@ -153,6 +175,22 @@
         <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
 
         <button id="btn-parcours" class="btn-gris" onclick="basculerParcours()">🗺️ Afficher tous les stationnements</button>
+
+        <button id="btn-recap" class="btn-gris" onclick="basculerRecap()">📝 Générer le texte récapitulatif</button>
+        <div id="panneau-recap" class="recap">
+            <textarea id="texte-recap" class="recap-zone" readonly rows="12"></textarea>
+            <div class="recap-actions">
+                <button class="mini valider" onclick="copierRecap()">📋 Copier</button>
+                <button class="mini annuler" onclick="basculerRecap()">Fermer</button>
+            </div>
+            <div id="recap-statut" class="recap-statut"></div>
+        </div>
+        <button id="btn-recit" class="btn-gris" onclick="basculerRecit()">📖 Texte pour l'IA (en faire une histoire)</button>
+        <div id="panneau-recit" class="recit">
+            <div id="recit-info" class="recit-info"></div>
+            <textarea id="recit-texte" class="recit-texte" readonly></textarea>
+            <button class="mini valider" onclick="copierRecit()">📋 Copier le texte</button>
+        </div>
 
         <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
         <div id="panneau-correction" class="correction">
@@ -258,7 +296,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.29.0';
+        const VERSION = '1.30.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1455,6 +1493,74 @@
         }
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
+
+        // ================= Texte récapitulatif (prompt pour une IA) =================
+        const CONSIGNE_RECAP = "Voici une liste d'emplacements de parking avec des dates, des adresses et des commentaires. Utilise ces éléments pour rédiger une histoire narrative et captivante :";
+        function formaterDateLongue(iso){
+            return new Date(iso).toLocaleString('fr-FR',
+                { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        }
+        function genererTexteRecap(){
+            let t = CONSIGNE_RECAP + "\n\n";
+            if(!historique.length){
+                return t + "(Aucun stationnement enregistré pour le moment.)";
+            }
+            const entrees = [...historique].sort((a,b)=> new Date(a.date) - new Date(b.date));  // ordre chronologique
+            entrees.forEach((e, i)=>{
+                const lieu = (e.adresse && e.adresse.trim())
+                    ? e.adresse.trim()
+                    : "adresse inconnue (coordonnées : " + e.lat.toFixed(6) + ", " + e.lon.toFixed(6) + ")";
+                t += (i+1) + ". Le " + formaterDateLongue(e.date) + "\n";
+                t += "   Lieu : " + lieu + "\n";
+                const note = (e.note || '').trim();
+                if(note) t += "   Commentaire : " + note.replace(/\s*\n\s*/g, ' / ') + "\n";
+                t += "\n";
+            });
+            t += "Nombre total de stationnements : " + entrees.length + ".";
+            return t;
+        }
+        function statutRecap(txt, couleur){
+            const el=document.getElementById('recap-statut'); if(!el) return;
+            el.textContent = txt; el.style.color = couleur || '#86868b';
+        }
+        async function copierRecap(){
+            const zone=document.getElementById('texte-recap');
+            const texte=zone.value;
+            try{
+                if(navigator.clipboard && window.isSecureContext){
+                    await navigator.clipboard.writeText(texte);
+                    statutRecap("✅ Texte copié dans le presse-papier.", '#34c759');
+                    return true;
+                }
+                throw new Error('clipboard indisponible');
+            }catch(e){
+                // Repli : sélection du texte pour une copie manuelle (iOS bloque parfois la copie automatique)
+                try{
+                    zone.removeAttribute('readonly');
+                    zone.focus(); zone.setSelectionRange(0, texte.length);
+                    const ok = document.execCommand && document.execCommand('copy');
+                    zone.setAttribute('readonly','readonly');
+                    if(ok){ statutRecap("✅ Texte copié dans le presse-papier.", '#34c759'); return true; }
+                }catch(_){}
+                statutRecap("⚠️ Copie automatique refusée par le navigateur.\n→ Le texte est sélectionné : touche « Copier » dans le menu, ou appuie longuement dessus puis Copier.", '#ff9500');
+                return false;
+            }
+        }
+        function basculerRecap(){
+            const btn=document.getElementById('btn-recap');
+            const panneau=document.getElementById('panneau-recap');
+            if(panneau.classList.contains('ouvert')){
+                panneau.classList.remove('ouvert');
+                btn.classList.remove('actif'); btn.textContent='📝 Générer le texte récapitulatif';
+                statutRecap('');
+                return;
+            }
+            document.getElementById('texte-recap').value = genererTexteRecap();
+            panneau.classList.add('ouvert');
+            btn.classList.add('actif'); btn.textContent='📝 Masquer le texte récapitulatif';
+            statutRecap("Copie en cours…", '#007aff');
+            copierRecap();   // copie automatique dès l'ouverture
+        }
 
         // Ouvre Google Maps avec l'itinéraire à pied de « tu es ici » vers la voiture
         function itineraireVersVoiture(){
