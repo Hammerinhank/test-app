@@ -1098,8 +1098,7 @@
             majAffichageHistorique(); majDistance();
         }
         // « Voir » : sélectionne l'entrée ET révèle sa note (à l'unité)
-        function voirEntree(id){
-            idNoteVisible=id;
+        function voirEntree(id){            idNoteVisible=id;
             selectionnerEntree(id);   // re-rend la liste : la note de cette entrée apparaît
         }
         // Referme la note affichée à l'unité dès qu'on passe à autre chose
@@ -1177,7 +1176,7 @@
                 const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 const actif=(e.id===idCourant)?' actif':'';
                 const pastille = parcoursVisible
-                    ? `<div class="pastille-parcours${e.id===idDerniere?' derniere':''}">${numeroParId.get(e.id)}</div>`
+                    ? `<div class="pastille-parcours cliquable${e.id===idDerniere?' derniere':''}" onclick="centrerSurStationnement(${e.id})" role="button" title="Centrer la carte sur ce stationnement">${numeroParId.get(e.id)}</div>`
                     : '';
                 const noteZone = (parcoursVisible || e.id===idNoteVisible)
                     ? `<div class="note-zone" contenteditable="false" data-placeholder="Double-cliquez pour écrire une note…" ondblclick="activerNote(this)" onblur="sauverNote(this, ${e.id})" onkeydown="toucheNote(event, this)">${echapper(e.note)}</div>`
