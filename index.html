@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.24.0</title>
+    <title>Ma Géolocalisation — v1.25.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -60,6 +60,10 @@
         #btn-suivi.eco { background: #ff9500; color: #fff; }
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
+        .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
+        .etat-suivi.off { background: #f0f0f2; color: #86868b; }
+        .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
+        .etat-suivi.normal { background: #eaf7ee; color: #248a3d; }
         .error { color: #ff3b30; font-weight: 600; }
         .icone-voiture { font-size: 26px; line-height: 36px; text-align: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
         .histo-titre { display: none; margin-top: 22px; margin-bottom: 8px; font-size: 16px; font-weight: 700; text-align: left; }
@@ -160,6 +164,7 @@
         <div id="statut-voiture" class="statut"></div>
         <div id="distance" class="distance"></div>
         <div id="adresse-voiture" class="adresse-voiture"></div>
+        <div id="etat-suivi" class="etat-suivi off">Suivi de position : ⏸️ OFF</div>
         <div id="bloc-info" class="info"></div>
         <div id="map"></div>
         <div id="barre-carte">
@@ -231,6 +236,8 @@
         <details class="manuel">
             <summary>🧪 Simuler le raccourci Apple</summary>
             <button class="btn-voiture" onclick="simulerShortcut()">Simuler avec ma position actuelle</button>
+            <button class="btn-gris" onclick="verifierVersionPubliee()">🔎 Comparer avec la version publiée</button>
+            <div id="version-comparaison" class="parking-url-statut"></div>
             <div id="sim-statut" class="parking-url-statut"></div>
             <div class="aide">
                 Ce bouton fait tout en une fois : il <strong>publie cette page</strong> dans ton dépôt sous le
@@ -249,7 +256,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.24.0';
+        const VERSION = '1.25.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -644,13 +651,12 @@
             // Leaflet doit recalculer ses dimensions après le changement de taille (deux passes par sûreté)
             setTimeout(()=>{ if(carte) carte.invalidateSize(); }, 60);
             setTimeout(()=>{ if(carte) carte.invalidateSize(); }, 300);
-            // Suivi temps réel actif uniquement en plein écran (et selon la préférence du bouton)
-            // Suivi actif uniquement en plein écran : démarre en mode éco à l'entrée, s'arrête à la sortie
-            if(pleinEcran){ demarrerSuivi(); }
-            else { modeSuivi='off'; arreterSuivi(); }
+            // Suivi : toujours OFF à l'entrée en plein écran, et OFF à la sortie
+            if(pleinEcran){ modeSuivi='off'; appliquerModeSuivi(); }
+            else { modeSuivi='off'; arreterSuivi(); majEtatSuivi(); }
         }
 
-        // ===== Suivi en temps réel de ma position (plein écran) — 3 états : éco → normal → arrêt =====
+        // ===== Suivi en temps réel de ma position (plein écran) — 3 états : off → éco → normal =====
         function arreterWatch(){   // coupe le GPS sans changer le mode choisi
             if(idSuivi!==null){ navigator.geolocation.clearWatch(idSuivi); idSuivi=null; }
         }
@@ -658,25 +664,33 @@
             arreterWatch();
             const st=document.getElementById('statut-voiture');
             if(st && st.textContent.indexOf('Suivi')!==-1) st.textContent='';   // efface un éventuel message résiduel
+            majEtatSuivi();
+        }
+        // Ligne d'état permanente sur la page principale
+        function majEtatSuivi(){
+            const el=document.getElementById('etat-suivi'); if(!el) return;
+            el.classList.remove('eco','normal','off');
+            if(modeSuivi==='eco'){ el.classList.add('eco'); el.textContent='Suivi de position : 🔋 ÉCO (relevés espacés)'; }
+            else if(modeSuivi==='normal'){ el.classList.add('normal'); el.textContent='Suivi de position : 📡 NORMAL (plus réactif)'; }
+            else { el.classList.add('off'); el.textContent='Suivi de position : ⏸️ OFF'; }
         }
         function appliquerModeSuivi(){   // (re)lance le watch avec les options du mode courant
             arreterWatch();
             const st=document.getElementById('statut-voiture');
-            if(modeSuivi==='off'){ if(st) st.textContent="📡 Suivi arrêté."; majBoutonSuivi(); return; }
+            if(modeSuivi==='off'){ if(st) st.textContent="📡 Suivi arrêté."; majBoutonSuivi(); majEtatSuivi(); return; }
             if(!navigator.geolocation){ if(st) st.textContent="La géolocalisation n'est pas supportée."; return; }
             const opts = (modeSuivi==='normal') ? OPTIONS_SUIVI_NORMAL : OPTIONS_SUIVI_ECO;
             idSuivi = navigator.geolocation.watchPosition(surSuiviPosition, ()=>{}, opts);
             if(st) st.textContent = (modeSuivi==='normal')
                 ? "📡 Suivi normal activé (plus réactif)."
                 : "🔋 Suivi éco activé (relevés espacés).";
-            majBoutonSuivi();
+            majBoutonSuivi(); majEtatSuivi();
         }
-        // Démarre en mode éco à l'entrée du plein écran
-        function demarrerSuivi(){ modeSuivi='eco'; appliquerModeSuivi(); }
-        // Clic sur le bouton : éco → normal → arrêt → éco …
+        function demarrerSuivi(){ appliquerModeSuivi(); }
+        // Clic sur le bouton : off → éco → normal → off …
         function basculerSuivi(){
             if(!pleinEcran) return;
-            modeSuivi = (modeSuivi==='eco') ? 'normal' : (modeSuivi==='normal') ? 'off' : 'eco';
+            modeSuivi = (modeSuivi==='off') ? 'eco' : (modeSuivi==='eco') ? 'normal' : 'off';
             appliquerModeSuivi();
         }
         function majBoutonSuivi(){
@@ -867,7 +881,52 @@
             }
         }
 
-        // ===== Simulation du raccourci Apple + publication GitHub Pages =====
+        // ===== Comparaison version courante / version publiée dans localisation.html =====
+        function versionDepuisSource(src){
+            const m = src.match(/const\s+VERSION\s*=\s*'([^']+)'/);
+            const d = src.match(/const\s+DATE_VERSION\s*=\s*'([^']+)'/);
+            return m ? { version:m[1], date: d?d[1]:'' } : null;
+        }
+        async function verifierVersionPubliee(){
+            const el=document.getElementById('version-comparaison');
+            try { const p=parseRepo(document.getElementById('gh-repo').value); ghUser=p.user; ghRepo=p.repo; } catch(e){}
+            const url = urlPubliee();
+            el.className='parking-url-statut info';
+            el.textContent="🔎 Lecture de la version publiée dans "+FICHIER_PUBLIE+"…";
+            try{
+                const r = await fetch(url + '?v=' + Date.now(), { cache:'no-store' });
+                if(!r.ok){
+                    el.className='parking-url-statut err';
+                    el.innerHTML="❌ Impossible de lire "+lienCliquable(url)+" (code "+r.status+").\n"+
+                        "→ Le fichier n'est peut-être pas encore publié. Utilise « Simuler avec ma position actuelle » : il crée/met à jour "+FICHIER_PUBLIE+" dans ton dépôt.";
+                    return;
+                }
+                const src = await r.text();
+                const info = versionDepuisSource(src);
+                if(!info){
+                    el.className='parking-url-statut err';
+                    el.innerHTML="❌ Version introuvable dans le fichier publié.\n→ Le fichier en ligne n'est probablement pas cette application. Republie-le via « Simuler avec ma position actuelle ».";
+                    return;
+                }
+                if(info.version === VERSION){
+                    el.className='parking-url-statut ok';
+                    el.textContent="✅ Les deux codes sont identiques.\n"+
+                        "Version de cette page : "+VERSION+"\nVersion publiée : "+info.version+(info.date?" — "+info.date:"")+"\nRien à faire.";
+                } else {
+                    el.className='parking-url-statut info';
+                    el.innerHTML="⚠️ Les deux versions diffèrent.\n"+
+                        "• Cette page (en cours) : <strong>"+echapper(VERSION)+"</strong>\n"+
+                        "• Fichier publié "+FICHIER_PUBLIE+" : <strong>"+echapper(info.version)+"</strong>"+(info.date?" — "+echapper(info.date):"")+"\n\n"+
+                        "→ Pour rendre les deux identiques : renseigne ton token (section Synchronisation) puis touche "+
+                        "« Simuler avec ma position actuelle » : il recopie le code de CETTE page dans "+FICHIER_PUBLIE+". "+
+                        "Attends 1 à 2 min, recharge "+lienCliquable(url)+" et re-compare.";
+                }
+            }catch(e){
+                el.className='parking-url-statut err';
+                el.innerHTML="❌ Lecture impossible (réseau ou fichier absent).\n→ Vérifie que "+lienCliquable(url)+" existe, ou publie-le via « Simuler avec ma position actuelle ».";
+            }
+        }
+
         function afficherBanniereSim(type, html){
             const el=document.getElementById('sim-statut'); if(!el) return;
             el.className='parking-url-statut '+type;   // 'ok' | 'err' | 'info'
@@ -1401,6 +1460,7 @@
             // Détection auto : on restaure le réglage et on relance un relevé au retour au premier plan
             try { detectionAuto = (localStorage.getItem(CLE_DETECTION)==='1'); } catch(e){ detectionAuto=false; }
             majBoutonDetection();
+            majEtatSuivi();
             if(detectionAuto) demarrerDetection();
             document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && detectionAuto) echantillonner(); });
 
