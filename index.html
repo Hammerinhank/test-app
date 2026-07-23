@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.35.0</title>
+    <title>Ma Géolocalisation — v1.36.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -69,6 +69,25 @@
             background: #f5f5f7; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; text-align: left; }
         .trajet-nom { font-size: 13px; font-weight: 600; overflow: hidden; word-break: break-word; }
         .trajet-vide { font-size: 13px; color: #86868b; }
+        /* Fenêtre de confirmation ancrée EN HAUT : le clavier iPhone occupe le bas et ne la recouvre pas */
+        .modale-fond {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45); z-index: 20000;
+            justify-content: center; align-items: flex-start;
+            padding: calc(env(safe-area-inset-top, 0px) + 16px) 14px 14px;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .modale-fond.ouvert { display: flex; }
+        .modale-boite {
+            background: #fff; border-radius: 16px; width: 100%; max-width: 360px;
+            padding: 20px; text-align: left; box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+        .modale-titre { font-size: 17px; font-weight: 700; color: #ff3b30; margin-bottom: 10px; }
+        .modale-message { font-size: 14px; line-height: 1.5; color: #1d1d1f; white-space: pre-line; }
+        .modale-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+        .modale-actions .mini { width: 100%; padding: 13px; font-size: 15px; }
+        .modale-actions .mini:disabled { background: #e8e8ed; color: #b0b0b6; }
+        .modale-statut { margin-top: 10px; font-size: 13px; font-weight: 600; white-space: pre-line; line-height: 1.4; }
         .etat-suivi.off { background: #f0f0f2; color: #86868b; }
         .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
         .etat-suivi.normal { background: #eaf7ee; color: #248a3d; }
@@ -312,12 +331,29 @@
         <div id="version-appli" class="version-appli"></div>
     </div>
 
+    <div id="modale-destruction" class="modale-fond">
+        <div class="modale-boite">
+            <div class="modale-titre">🗑️ Détruire cette sauvegarde ?</div>
+            <div id="modale-message" class="modale-message"></div>
+            <label class="champ">Tape <strong>détruire</strong> pour confirmer
+                <input id="modale-saisie" type="text" autocomplete="off" autocapitalize="none"
+                       autocorrect="off" spellcheck="false" placeholder="détruire"
+                       oninput="verifierSaisieDestruction()">
+            </label>
+            <div class="modale-actions">
+                <button id="modale-confirmer" class="mini suppr" onclick="confirmerDestructionTrajet()" disabled>Détruire définitivement</button>
+                <button class="mini annuler" onclick="fermerModaleDestruction()">Annuler</button>
+            </div>
+            <div id="modale-statut" class="modale-statut"></div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.35.0';
+        const VERSION = '1.36.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1594,10 +1630,14 @@
                 const fichiers=(await r.json()).filter(f=>f.type==='file' && /\.json$/i.test(f.name))
                                               .sort((a,b)=> b.name.localeCompare(a.name));   // plus récent en premier
                 if(!fichiers.length){ bloc.innerHTML='<div class="trajet-vide">Aucune sauvegarde pour l\'instant.</div>'; return; }
-                bloc.innerHTML=fichiers.map(f=>
-                    '<div class="trajet-item"><div class="trajet-nom">'+echapper(f.name)+'</div>'+
-                    '<button class="mini voir" onclick="chargerTrajet(\''+encodeURIComponent(f.name).replace(/'/g,"%27")+'\')">Charger</button></div>'
-                ).join('');
+                bloc.innerHTML=fichiers.map(f=>{
+                    const n=encodeURIComponent(f.name).replace(/'/g,"%27");
+                    return '<div class="trajet-item"><div class="trajet-nom">'+echapper(f.name)+'</div>'+
+                        '<div class="histo-actions">'+
+                        '<button class="mini voir" onclick="chargerTrajet(\''+n+'\')">Charger</button>'+
+                        '<button class="mini suppr" onclick="demanderDestructionTrajet(\''+n+'\')">🗑️</button>'+
+                        '</div></div>';
+                }).join('');
             }catch(e){ bloc.innerHTML=''; statutTrajets("Lecture de la liste impossible :\n\n"+messageErreur(e), '#ff3b30'); }
         }
 
@@ -1624,8 +1664,76 @@
             }catch(e){ statutTrajets("Chargement impossible :\n\n"+messageErreur(e), '#ff3b30'); }
         }
 
-        async function effacerTout(){
-            if(!estSauvegarde()){
+        // ===== Destruction d'un fichier de sauvegarde (confirmation par saisie) =====
+        let trajetASupprimer = null;   // { fichier, sha, nb }
+        function normaliserMot(v){
+            return (v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        }
+        function verifierSaisieDestruction(){
+            const b=document.getElementById('modale-confirmer');
+            b.disabled = normaliserMot(document.getElementById('modale-saisie').value) !== 'detruire';
+        }
+        function fermerModaleDestruction(){
+            document.getElementById('modale-destruction').classList.remove('ouvert');
+            document.getElementById('modale-saisie').value='';
+            document.getElementById('modale-confirmer').disabled=true;
+            document.getElementById('modale-statut').textContent='';
+            trajetASupprimer=null;
+        }
+        async function demanderDestructionTrajet(fichierEncode){
+            if(!prerequisTrajets()) return;
+            const fichier=decodeURIComponent(fichierEncode);
+            statutTrajets("🔎 Lecture de « "+echapper(fichier)+" » avant destruction…");
+            try{
+                const r=await fetch(apiTrajet(fichier)+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+                if(!r.ok) throw await erreurHttp(r);
+                const d=await r.json();
+                let nb=null;   // null = contenu illisible (phrase de passe différente)
+                try{
+                    const texte=new TextDecoder().decode(bytesFromB64(d.content));
+                    const donnees=await dechiffrer(JSON.parse(texte), passphrase);
+                    const entrees=Array.isArray(donnees)?donnees:(donnees.entrees||[]);
+                    nb=entrees.length;
+                }catch(_){}
+                trajetASupprimer={ fichier, sha:d.sha, nb };
+                const compte = (nb===null)
+                    ? "⚠️ Contenu illisible avec la phrase de passe actuelle : impossible de compter les stationnements."
+                    : "Ce fichier contient " + nb + " place" + (nb>1?"s":"") + " de parking mémorisée" + (nb>1?"s":"") + ".";
+                document.getElementById('modale-message').textContent =
+                    "Fichier : " + fichier + "\n\n" + compte +
+                    "\n\nCette destruction est définitive et supprimera le fichier sur GitHub.";
+                statutTrajets('');
+                const modale=document.getElementById('modale-destruction');
+                modale.classList.add('ouvert');
+                document.getElementById('modale-saisie').value='';
+                document.getElementById('modale-confirmer').disabled=true;
+                setTimeout(()=>{ try{ document.getElementById('modale-saisie').focus(); }catch(e){} }, 250);
+            }catch(e){ statutTrajets("Impossible de lire ce fichier :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+        async function confirmerDestructionTrajet(){
+            if(!trajetASupprimer) { fermerModaleDestruction(); return; }
+            if(normaliserMot(document.getElementById('modale-saisie').value) !== 'detruire'){
+                document.getElementById('modale-statut').textContent="❌ Saisis exactement « détruire » pour confirmer.";
+                document.getElementById('modale-statut').style.color='#ff3b30';
+                return;
+            }
+            const { fichier, sha } = trajetASupprimer;
+            const st=document.getElementById('modale-statut');
+            st.style.color='#007aff'; st.textContent="Destruction en cours…";
+            try{
+                const r=await fetch(apiTrajet(fichier), { method:'DELETE', headers: enTetes(),
+                    body: JSON.stringify({ message:'Suppression '+fichier, sha, branch:branche }) });
+                if(!r.ok) throw await erreurHttp(r);
+                fermerModaleDestruction();
+                statutTrajets("🗑️ Sauvegarde détruite : "+echapper(fichier), '#34c759');
+                listerTrajets();
+            }catch(e){
+                st.style.color='#ff3b30';
+                st.innerHTML="La destruction a échoué :\n\n"+messageErreur(e);
+            }
+        }
+
+        async function effacerTout(){            if(!estSauvegarde()){
                 statutTrajets("❌ Effacement refusé : le contenu actuel n'a pas été sauvegardé.\n→ Fais d'abord « 💾 Sauvegarder le trajet actuel ».", '#ff3b30');
                 majBoutonEffacer(); return;
             }
