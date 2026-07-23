@@ -1495,7 +1495,7 @@
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
 
         // ================= Texte récapitulatif (prompt pour une IA) =================
-        const CONSIGNE_RECAP = "Voici une liste d'emplacements de parking avec des dates, des adresses et des commentaires. Utilise ces éléments pour rédiger une histoire narrative et captivante :";
+        const CONSIGNE_RECAP = "Rédige un récit de voyage fluide et littéraire à partir des étapes ci-dessous. Ne reprends pas les heures exactes, les adresses ou les coordonnées GPS sous forme de liste : intègre simplement les lieux et les moments de la journée de manière naturelle dans le texte.";
         function formaterDateLongue(iso){
             return new Date(iso).toLocaleString('fr-FR',
                 { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
