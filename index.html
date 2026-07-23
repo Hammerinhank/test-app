@@ -61,6 +61,14 @@
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
         .etat-suivi { margin-top: 10px; font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 8px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .btn-danger { background: #ff3b30; color: #fff; margin-top: 12px; }
+        .btn-danger:active { background: #c1271d; }
+        .btn-danger:disabled { background: #e8e8ed; color: #b0b0b6; cursor: not-allowed; }
+        .liste-trajets { margin-top: 12px; }
+        .trajet-item { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            background: #f5f5f7; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; text-align: left; }
+        .trajet-nom { font-size: 13px; font-weight: 600; overflow: hidden; word-break: break-word; }
+        .trajet-vide { font-size: 13px; color: #86868b; }
         .etat-suivi.off { background: #f0f0f2; color: #86868b; }
         .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
         .etat-suivi.normal { background: #eaf7ee; color: #248a3d; }
@@ -249,6 +257,24 @@
                 <em>par-dessus</em>, en redondance : token et phrase restent sur cet appareil et ne
                 sont jamais écrits dans le code ni envoyés sur GitHub ; seul l'historique
                 <em>chiffré</em> part dans <code>parkings.json</code>.
+            </div>
+        </details>
+
+        <details class="manuel">
+            <summary>💾 Sauvegardes de trajets</summary>
+            <label class="champ">Nom de la sauvegarde
+                <input id="nom-trajet" type="text" autocomplete="off" placeholder="Vacances Alsace">
+            </label>
+            <button class="btn-voiture" onclick="sauvegarderTrajet()">💾 Sauvegarder le trajet actuel</button>
+            <button class="btn-gris" onclick="listerTrajets()">🔄 Actualiser la liste des sauvegardes</button>
+            <div id="liste-trajets" class="liste-trajets"></div>
+            <button id="btn-effacer" class="btn-danger" onclick="effacerTout()" disabled>🗑️ Effacer tout le contenu</button>
+            <div id="trajets-statut" class="sync-statut"></div>
+            <div class="aide">
+                Chaque sauvegarde crée un fichier <strong>chiffré</strong> dans le dossier <code>trajets/</code> de
+                ton dépôt, nommé <code>Trajet AAAA-MM-JJ HHhMM &lt;nom&gt;.json</code>. Le rechargement
+                <strong>ajoute</strong> les stationnements à l'existant, sans rien écraser, en respectant l'ordre
+                chronologique. Le bouton d'effacement ne s'active que si le contenu actuel a été sauvegardé.
             </div>
         </details>
 
@@ -1243,6 +1269,7 @@
                 bloc.innerHTML=''; titre.style.display='none';
                 if(parcoursVisible){ masquerParcours(); parcoursVisible=false;
                     const b=document.getElementById('btn-parcours'); b.classList.remove('actif'); b.textContent='🗺️ Afficher tous les stationnements'; }
+                majBoutonEffacer();
                 return;
             }
             titre.style.display='block';
@@ -1263,6 +1290,7 @@
                 return `<div class="histo-item${actif}"><div class="histo-ligne"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir" onclick="voirEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>${noteZone}</div>`;
             }).join('');
             rafraichirParcours();
+            majBoutonEffacer();
         }
 
         // ===== Notes par stationnement (visibles seulement quand le trajet est affiché) =====
@@ -1489,6 +1517,130 @@
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
 
+        // ================= Sauvegardes de trajets (dossier trajets/ sur GitHub) =================
+        const DOSSIER_TRAJETS = 'trajets';
+        const CLE_SIGNATURE = 'signature_sauvegarde';
+        function hachage(txt){ let h=5381; for(let i=0;i<txt.length;i++){ h=(((h<<5)+h)^txt.charCodeAt(i))>>>0; } return h.toString(36); }
+        // Empreinte du contenu actuel : change dès qu'un stationnement est ajouté, modifié ou supprimé
+        function signatureHistorique(){
+            const base=[...historique].sort((a,b)=>a.id-b.id)
+                .map(e=>[e.id,e.date,e.lat,e.lon,e.adresse||'',e.note||''].join('~')).join('|');
+            return hachage(base)+'.'+historique.length;
+        }
+        function marquerSauvegarde(){ try{ localStorage.setItem(CLE_SIGNATURE, signatureHistorique()); }catch(e){} majBoutonEffacer(); }
+        function estSauvegarde(){
+            if(!historique.length) return false;
+            let s=null; try{ s=localStorage.getItem(CLE_SIGNATURE); }catch(e){}
+            return s!==null && s===signatureHistorique();
+        }
+        function majBoutonEffacer(){
+            const b=document.getElementById('btn-effacer'); if(!b) return;
+            const ok=estSauvegarde();
+            b.disabled=!ok;
+            b.textContent = ok ? '🗑️ Effacer tout le contenu'
+                               : (historique.length ? '🗑️ Effacer (sauvegarde requise)' : '🗑️ Effacer (aucun contenu)');
+        }
+        function statutTrajets(html, couleur){
+            const el=document.getElementById('trajets-statut'); if(!el) return;
+            el.innerHTML=html; el.style.color=couleur||'#007aff';
+        }
+        function deuxChiffres(n){ return (n<10?'0':'')+n; }
+        function nomFichierTrajet(nom){
+            const d=new Date();
+            const horodatage = d.getFullYear()+'-'+deuxChiffres(d.getMonth()+1)+'-'+deuxChiffres(d.getDate())
+                             +' '+deuxChiffres(d.getHours())+'h'+deuxChiffres(d.getMinutes());
+            const propre=(nom||'').trim().replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').slice(0,60);
+            return 'Trajet '+horodatage+(propre?' '+propre:'')+'.json';   // « Trajet » toujours avant la date
+        }
+        function apiTrajet(fichier){
+            return 'https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/contents/'+DOSSIER_TRAJETS+'/'+encodeURIComponent(fichier);
+        }
+        function prerequisTrajets(){
+            if(!configComplete()){
+                statutTrajets("❌ Dépôt, token et phrase de passe sont requis.\n→ Renseigne-les dans « ⚙️ Synchronisation GitHub », puis réessaie.", '#ff3b30');
+                return false;
+            }
+            return true;
+        }
+
+        async function sauvegarderTrajet(){
+            if(!prerequisTrajets()) return;
+            if(!historique.length){ statutTrajets("❌ Aucun stationnement à sauvegarder.", '#ff3b30'); return; }
+            const nom=document.getElementById('nom-trajet').value;
+            const fichier=nomFichierTrajet(nom);
+            statutTrajets("💾 Sauvegarde de « "+echapper(fichier)+" » en cours…");
+            try{
+                const paquet=await chiffrer({ type:'trajet', nom:(nom||'').trim(), exporte:new Date().toISOString(), entrees:historique }, passphrase);
+                const contenu=b64FromBytes(new TextEncoder().encode(JSON.stringify(paquet)));
+                const r=await fetch(apiTrajet(fichier), { method:'PUT', headers: enTetes(),
+                    body: JSON.stringify({ message:'Sauvegarde '+fichier, content:contenu, branch:branche }) });
+                if(!r.ok) throw await erreurHttp(r);
+                marquerSauvegarde();
+                statutTrajets("✅ Sauvegardé : "+echapper(fichier)+"\n"+historique.length+" stationnement(s). Tu peux maintenant effacer le contenu si tu le souhaites.", '#34c759');
+                document.getElementById('nom-trajet').value='';
+                listerTrajets();
+            }catch(e){ statutTrajets("La sauvegarde a échoué :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        async function listerTrajets(){
+            if(!prerequisTrajets()) return;
+            const bloc=document.getElementById('liste-trajets');
+            bloc.innerHTML='<div class="trajet-vide">Chargement de la liste…</div>';
+            try{
+                const r=await fetch('https://api.github.com/repos/'+ghUser+'/'+ghRepo+'/contents/'+DOSSIER_TRAJETS
+                                    +'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+                if(r.status===404){ bloc.innerHTML='<div class="trajet-vide">Aucune sauvegarde pour l\'instant.</div>'; return; }
+                if(!r.ok) throw await erreurHttp(r);
+                const fichiers=(await r.json()).filter(f=>f.type==='file' && /\.json$/i.test(f.name))
+                                              .sort((a,b)=> b.name.localeCompare(a.name));   // plus récent en premier
+                if(!fichiers.length){ bloc.innerHTML='<div class="trajet-vide">Aucune sauvegarde pour l\'instant.</div>'; return; }
+                bloc.innerHTML=fichiers.map(f=>
+                    '<div class="trajet-item"><div class="trajet-nom">'+echapper(f.name)+'</div>'+
+                    '<button class="mini voir" onclick="chargerTrajet(\''+encodeURIComponent(f.name).replace(/'/g,"%27")+'\')">Charger</button></div>'
+                ).join('');
+            }catch(e){ bloc.innerHTML=''; statutTrajets("Lecture de la liste impossible :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        async function chargerTrajet(fichierEncode){
+            if(!prerequisTrajets()) return;
+            const fichier=decodeURIComponent(fichierEncode);
+            statutTrajets("📥 Chargement de « "+echapper(fichier)+" »…");
+            try{
+                const r=await fetch(apiTrajet(fichier)+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
+                if(!r.ok) throw await erreurHttp(r);
+                const d=await r.json();
+                const texte=new TextDecoder().decode(bytesFromB64(d.content));
+                const donnees=await dechiffrer(JSON.parse(texte), passphrase);
+                const entrees=Array.isArray(donnees) ? donnees : (donnees.entrees||[]);
+                if(!entrees.length){ statutTrajets("⚠️ Cette sauvegarde ne contient aucun stationnement.", '#ff9500'); return; }
+                const avant=historique.length;
+                historique=fusionner(historique, entrees);          // union par id, triée par date
+                sauverCacheLocal();
+                idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
+                const ajoutes=historique.length-avant;
+                statutTrajets("✅ « "+echapper(fichier)+" » chargé.\n"+ajoutes+" stationnement(s) ajouté(s) — total : "+historique.length+", classés par date.", '#34c759');
+                await persister();
+                majBoutonEffacer();
+            }catch(e){ statutTrajets("Chargement impossible :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        async function effacerTout(){
+            if(!estSauvegarde()){
+                statutTrajets("❌ Effacement refusé : le contenu actuel n'a pas été sauvegardé.\n→ Fais d'abord « 💾 Sauvegarder le trajet actuel ».", '#ff3b30');
+                majBoutonEffacer(); return;
+            }
+            if(!confirm("Effacer les "+historique.length+" stationnement(s) ?\nUne sauvegarde existe, tu pourras les recharger.")) return;
+            historique=[]; idSelection=null; idNoteVisible=null;
+            if(parcoursVisible) basculerParcours();
+            if(marqueurVoiture && carte){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
+            sauverCacheLocal();
+            majAffichageHistorique(); majDistance(); majAdresseVoiture();
+            statutTrajets("🗑️ Contenu effacé. Recharge une sauvegarde quand tu veux.", '#34c759');
+            await persister();
+            majBoutonEffacer();
+        }
+
+
         // ================= Texte récapitulatif (prompt pour une IA) =================
         const CONSIGNE_DEFAUT = "Rédige un récit de voyage fluide et littéraire à partir des étapes ci-dessous. Ne reprends pas les heures exactes, les adresses ou les coordonnées GPS sous forme de liste : intègre simplement les lieux et les moments de la journée de manière naturelle dans le texte.";
         const CLE_CONSIGNE = 'consigne_recap';
@@ -1665,6 +1817,7 @@
             try { detectionAuto = (localStorage.getItem(CLE_DETECTION)==='1'); } catch(e){ detectionAuto=false; }
             majBoutonDetection();
             majEtatSuivi();
+            majBoutonEffacer();
             if(detectionAuto) demarrerDetection();
             document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && detectionAuto) echantillonner(); });
 
