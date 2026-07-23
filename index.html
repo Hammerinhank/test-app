@@ -159,6 +159,7 @@
         .pastille-parcours.derniere { background: #34c759; }
         .pastille-parcours.cliquable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .pastille-parcours.cliquable:active { transform: scale(0.88); }
+        .popup-gmaps { width: 100%; margin-top: 8px; padding: 9px 10px; font-size: 13px; }
         .correction { display: none; margin-top: 12px; padding: 14px; background: #fff8ec; border: 2px solid #ff9500; border-radius: 12px; }
         .correction.ouvert { display: block; }
         .correction-txt { font-size: 13px; font-weight: 600; color: #1d1d1f; line-height: 1.5; text-align: left; margin-bottom: 12px; white-space: pre-line; }
@@ -1498,6 +1499,11 @@
                 className:'', iconSize:[24,24], iconAnchor:[12,12], popupAnchor:[0,-12]
             });
         }
+        // Ouvre Google Maps centré sur un point précis (depuis la bulle d'une pastille)
+        function ouvrirGoogleMaps(lat, lon){
+            const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon);
+            window.open(url, '_blank');
+        }
         function construireParcours(){
             const groupe = L.layerGroup();
             const entrees = [...historique].sort((a,b)=> new Date(a.date) - new Date(b.date)); // ordre chronologique
@@ -1509,7 +1515,8 @@
                 const estDerniere = (i === entrees.length-1);
                 const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere) })
-                    .bindPopup('#'+(i+1)+' — '+formaterDate(e.date)+'<br>'+lieu)
+                    .bindPopup('#'+(i+1)+' — '+formaterDate(e.date)+'<br>'+lieu+
+                               '<br><button class="mini voir popup-gmaps" onclick="ouvrirGoogleMaps('+e.lat+','+e.lon+')">🗺️ Ouvrir dans Google Maps</button>')
                     .addTo(groupe);
             });
             return groupe;
