@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.37.0</title>
+    <title>Ma Géolocalisation — v1.38.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -354,7 +354,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.37.0';
+        const VERSION = '1.38.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1220,6 +1220,11 @@
         // « Voir » : sélectionne l'entrée ET révèle sa note (à l'unité)
         function voirEntree(id){            idNoteVisible=id;
             selectionnerEntree(id);   // re-rend la liste : la note de cette entrée apparaît
+            // En mode « afficher tous les stationnements », on ramène la carte au centre de l'écran
+            if(parcoursVisible){
+                const m=document.getElementById('map');
+                if(m) m.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
         }
         // Referme la note affichée à l'unité dès qu'on passe à autre chose
         function masquerNoteSelective(){
