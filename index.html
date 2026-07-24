@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.39.0</title>
+    <title>Ma Géolocalisation — v1.40.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -160,6 +160,22 @@
         .pastille-parcours.cliquable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .pastille-parcours.cliquable:active { transform: scale(0.88); }
         .popup-gmaps { width: 100%; margin-top: 8px; padding: 9px 10px; font-size: 13px; }
+        /* Barre de navigation chronologique (plein écran + trajet affiché) */
+        .barre-nav {
+            display: none; position: fixed; left: 50%; transform: translateX(-50%);
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+            z-index: 10000; gap: 12px; align-items: center;
+            background: rgba(255,255,255,0.95); border-radius: 24px; padding: 8px 14px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.28);
+        }
+        .barre-nav.visible { display: flex; }
+        .btn-nav-fleche {
+            width: auto; padding: 10px 18px; font-size: 18px; font-weight: 700;
+            background: #007aff; color: #fff; border-radius: 18px;
+        }
+        .btn-nav-fleche:active { background: #0051d5; }
+        .btn-nav-fleche:disabled { background: #e8e8ed; color: #b0b0b6; }
+        .nav-indicateur { font-size: 14px; font-weight: 700; color: #1d1d1f; min-width: 54px; text-align: center; }
         .correction { display: none; margin-top: 12px; padding: 14px; background: #fff8ec; border: 2px solid #ff9500; border-radius: 12px; }
         .correction.ouvert { display: block; }
         .correction-txt { font-size: 13px; font-weight: 600; color: #1d1d1f; line-height: 1.5; text-align: left; margin-bottom: 12px; white-space: pre-line; }
@@ -349,12 +365,18 @@
         </div>
     </div>
 
+        <div id="barre-nav-parcours" class="barre-nav">
+            <button id="nav-precedent" class="btn-nav-fleche" onclick="parcoursPrecedent()" title="Stationnement plus ancien">◀</button>
+            <span id="nav-indicateur" class="nav-indicateur"></span>
+            <button id="nav-suivant" class="btn-nav-fleche" onclick="parcoursSuivant()" title="Stationnement plus récent">▶</button>
+        </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.39.0';
+        const VERSION = '1.40.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -763,6 +785,7 @@
             // Suivi : toujours OFF à l'entrée en plein écran, et OFF à la sortie
             if(pleinEcran){ modeSuivi='off'; appliquerModeSuivi(); }
             else { modeSuivi='off'; arreterSuivi(); majEtatSuivi(); }
+            majBarreNavParcours();
         }
 
         // ===== Suivi en temps réel de ma position (plein écran) — 3 états : off → éco → normal =====
@@ -1554,6 +1577,7 @@
                 btn.classList.remove('actif'); btn.textContent='🗺️ Afficher tous les stationnements';
                 statut.textContent='';
                 majAffichageHistorique();   // retire les pastilles de la liste
+                majBarreNavParcours();
                 return;
             }
             if(!afficherParcours(true)) return;   // échec si historique vide
@@ -1561,9 +1585,41 @@
             btn.classList.add('actif'); btn.textContent='🗺️ Masquer les stationnements';
             statut.textContent='🗺️ '+historique.length+' stationnement(s) reliés par ordre chronologique.';
             majAffichageHistorique();   // ajoute les pastilles dans la liste
+            majBarreNavParcours();
         }
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
+
+        // ===== Navigation d'un stationnement à l'autre (plein écran + trajet affiché) =====
+        function entreesChrono(){ return [...historique].sort((a,b)=> new Date(a.date) - new Date(b.date)); }
+        function indexCourantChrono(){
+            const l=entreesChrono(); if(!l.length) return -1;
+            const i=l.findIndex(e=>e.id===idSelection);
+            return i>=0 ? i : l.length-1;      // par défaut : le plus récent
+        }
+        function allerVersStationnement(delta){
+            const l=entreesChrono(); if(!l.length) return;
+            let i=indexCourantChrono()+delta;
+            if(i<0) i=0; if(i>l.length-1) i=l.length-1;
+            const e=l[i];
+            idSelection=e.id;
+            assurerCarte(e.lat,e.lon,17); carte.setView([e.lat,e.lon],17);
+            afficherVoiture(e.lat,e.lon);
+            marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
+            majAffichageHistorique(); majDistance(); majBarreNavParcours();
+        }
+        function parcoursPrecedent(){ allerVersStationnement(-1); }   // ◀ vers le plus ancien
+        function parcoursSuivant(){ allerVersStationnement(1); }      // ▶ vers le plus récent
+        function majBarreNavParcours(){
+            const barre=document.getElementById('barre-nav-parcours'); if(!barre) return;
+            const actif = pleinEcran && parcoursVisible && historique.length>0;
+            barre.classList.toggle('visible', actif);
+            if(!actif) return;
+            const l=entreesChrono(), i=indexCourantChrono();
+            document.getElementById('nav-indicateur').textContent=(i+1)+' / '+l.length;
+            document.getElementById('nav-precedent').disabled = (i<=0);
+            document.getElementById('nav-suivant').disabled = (i>=l.length-1);
+        }
 
         // ================= Sauvegardes de trajets (dossier trajets/ sur GitHub) =================
         const DOSSIER_TRAJETS = 'trajets';
