@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.44.0</title>
+    <title>Ma Géolocalisation — v1.45.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -143,6 +143,19 @@
         #btn-recap.actif { background: #5856d6; color: #fff; }
         #btn-recap.actif:active { background: #3f3ea8; }
         #btn-recap.copie { background: #34c759; color: #fff; }
+        #btn-page.actif { background: #5856d6; color: #fff; }
+        .page-recit { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; }
+        .page-recit.ouvert { display: block; }
+        .page-rendu {
+            background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; padding: 14px;
+            text-align: left; font-size: 14px; line-height: 1.6; color: #1d1d1f;
+            max-height: 60vh; overflow-y: auto; word-break: break-word;
+        }
+        .page-rendu img { max-width: 100%; height: auto; }
+        .page-rendu h1, .page-rendu h2, .page-rendu h3 { margin: 0.6em 0 0.3em; line-height: 1.3; }
+        .page-vide { color: #b0b0b6; font-style: italic; }
+        .editeur-recit { display: none; margin-top: 12px; }
+        .editeur-recit.ouvert { display: block; }
         .recap { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; }
         .recap.ouvert { display: block; }
         .recap-zone {
@@ -237,6 +250,21 @@
                 <button class="mini annuler" onclick="basculerRecap()">Fermer</button>
             </div>
             <div id="recap-statut" class="recap-statut"></div>
+        </div>
+
+        <button id="btn-page" class="btn-gris" onclick="basculerPageRecit()">📄 Page du récit</button>
+        <div id="panneau-page" class="page-recit">
+            <div id="page-rendu" class="page-rendu"></div>
+            <button class="btn-gris" onclick="ouvrirEditeurRecit()">✏️ Mettre à jour la page</button>
+            <div id="editeur-recit" class="editeur-recit">
+                <label class="recap-label" for="page-source">Colle ici le code HTML de la page</label>
+                <textarea id="page-source" class="recap-zone" rows="10" placeholder="&lt;h2&gt;Mon voyage&lt;/h2&gt;&lt;p&gt;…&lt;/p&gt;"></textarea>
+                <div class="recap-actions">
+                    <button class="mini valider" onclick="enregistrerRecitHtml()">✅ Enregistrer</button>
+                    <button class="mini annuler" onclick="fermerEditeurRecit()">Annuler</button>
+                </div>
+                <div id="page-statut" class="recap-statut"></div>
+            </div>
         </div>
 
         <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
@@ -397,7 +425,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.44.0';
+        const VERSION = '1.45.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1675,7 +1703,7 @@
         function signatureHistorique(){
             const base=[...historique].sort((a,b)=>a.id-b.id)
                 .map(e=>[e.id,e.date,e.lat,e.lon,e.adresse||'',e.note||''].join('~')).join('|');
-            return hachage(base)+'.'+historique.length;
+            return hachage(base+'##'+(recitHtml||''))+'.'+historique.length;
         }
         function marquerSauvegarde(){ try{ localStorage.setItem(CLE_SIGNATURE, signatureHistorique()); }catch(e){} majBoutonEffacer(); }
         function estSauvegarde(){
@@ -1720,7 +1748,7 @@
             const fichier=nomFichierTrajet(nom);
             statutTrajets("💾 Sauvegarde de « "+echapper(fichier)+" » en cours…");
             try{
-                const paquet=await chiffrer({ type:'trajet', nom:(nom||'').trim(), exporte:new Date().toISOString(), entrees:historique }, passphrase);
+                const paquet=await chiffrer({ type:'trajet', nom:(nom||'').trim(), exporte:new Date().toISOString(), entrees:historique, recit:recitHtml }, passphrase);
                 const contenu=b64FromBytes(new TextEncoder().encode(JSON.stringify(paquet)));
                 const r=await fetch(apiTrajet(fichier), { method:'PUT', headers: enTetes(),
                     body: JSON.stringify({ message:'Sauvegarde '+fichier, content:contenu, branch:branche }) });
@@ -1772,7 +1800,7 @@
                 const donnees=await dechiffrer(JSON.parse(texte), passphrase);
                 const entrees=Array.isArray(donnees) ? donnees : (donnees.entrees||[]);
                 if(!entrees.length){ statutTrajets("⚠️ Cette sauvegarde ne contient aucun point.", '#ff9500'); return; }
-                trajetACharger={ fichier, entrees };
+                trajetACharger={ fichier, entrees, recit:(donnees && typeof donnees.recit==='string') ? donnees.recit : null };
                 statutTrajets('');
                 const chargementPossible=peutCharger();
                 document.getElementById('chargement-message').textContent =
@@ -1798,7 +1826,7 @@
 
         async function executerChargement(mode){
             if(!trajetACharger){ fermerModaleChargement(); return; }
-            const { fichier, entrees } = trajetACharger;
+            const { fichier, entrees, recit } = trajetACharger;
             const st=document.getElementById('chargement-statut');
             if(!peutCharger()){
                 st.style.color='#ff3b30';
@@ -1808,10 +1836,18 @@
             const avant=historique.length;
             if(mode==='remplacement'){
                 historique=[...entrees].sort((a,b)=> new Date(a.date) - new Date(b.date));
+                recitHtml = (recit===null) ? '' : recit;                       // la page suit le trajet chargé
+                try{ localStorage.setItem(CLE_RECIT, recitHtml); }catch(e){}
+                afficherPageRecit();
                 if(parcoursVisible) basculerParcours();
                 if(marqueurVoiture && carte){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
             } else {
                 historique=fusionner(historique, entrees);      // union par id, triée par date
+                if(recit && !recitHtml.trim()){                 // on n'écrase jamais une page déjà écrite
+                    recitHtml=recit;
+                    try{ localStorage.setItem(CLE_RECIT, recitHtml); }catch(e){}
+                    afficherPageRecit();
+                }
             }
             sauverCacheLocal();
             idSelection=null; idNoteVisible=null;
@@ -1902,6 +1938,7 @@
             }
             if(!confirm("Effacer les "+historique.length+" stationnement(s) ?\nUne sauvegarde existe, tu pourras les recharger.")) return;
             historique=[]; idSelection=null; idNoteVisible=null;
+            recitHtml=''; try{ localStorage.setItem(CLE_RECIT, ''); }catch(e){} afficherPageRecit();
             if(parcoursVisible) basculerParcours();
             if(marqueurVoiture && carte){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
             sauverCacheLocal();
@@ -1911,6 +1948,59 @@
             majBoutonEffacer();
         }
 
+
+        // ================= Page du récit (contenu HTML libre, sauvegardé avec le trajet) =================
+        const CLE_RECIT = 'recit_html';
+        let recitHtml = '';
+        function chargerRecitHtml(){
+            try { recitHtml = localStorage.getItem(CLE_RECIT) || ''; } catch(e){ recitHtml=''; }
+        }
+        // Nettoyage minimal : on retire scripts, iframes et gestionnaires d'événements du HTML collé
+        function nettoyerHtml(src){
+            return (src||'')
+                .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+                .replace(/<\s*(iframe|object|embed)[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+                .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+                .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+                .replace(/javascript\s*:/gi, '');
+        }
+        function afficherPageRecit(){
+            const bloc=document.getElementById('page-rendu'); if(!bloc) return;
+            if(!recitHtml.trim()){ bloc.innerHTML='<div class="page-vide">(page vide — utilise « Mettre à jour la page »)</div>'; return; }
+            bloc.innerHTML = nettoyerHtml(recitHtml);
+        }
+        function basculerPageRecit(){
+            const btn=document.getElementById('btn-page');
+            const panneau=document.getElementById('panneau-page');
+            if(panneau.classList.contains('ouvert')){
+                panneau.classList.remove('ouvert');
+                btn.classList.remove('actif'); btn.textContent='📄 Page du récit';
+                fermerEditeurRecit();
+                return;
+            }
+            afficherPageRecit();
+            panneau.classList.add('ouvert');
+            btn.classList.add('actif'); btn.textContent='📄 Masquer la page du récit';
+        }
+        function ouvrirEditeurRecit(){
+            const e=document.getElementById('editeur-recit');
+            document.getElementById('page-source').value = recitHtml;
+            document.getElementById('page-statut').textContent='';
+            e.classList.add('ouvert');
+            document.getElementById('page-source').focus();
+        }
+        function fermerEditeurRecit(){
+            const e=document.getElementById('editeur-recit'); if(e) e.classList.remove('ouvert');
+        }
+        function enregistrerRecitHtml(){
+            recitHtml = document.getElementById('page-source').value || '';
+            try { localStorage.setItem(CLE_RECIT, recitHtml); } catch(e){}
+            afficherPageRecit();
+            fermerEditeurRecit();
+            majBoutonEffacer();   // le contenu a changé : la sauvegarde n'est plus à jour
+            const st=document.getElementById('page-statut');
+            if(st){ st.style.color='#34c759'; st.textContent="✅ Page mise à jour."; }
+        }
 
         // ================= Texte récapitulatif (prompt pour une IA) =================
         const CONSIGNE_DEFAUT = "Rédige un récit de voyage fluide et littéraire à partir des étapes ci-dessous. Ne reprends pas les heures exactes, les adresses ou les coordonnées GPS sous forme de liste : intègre simplement les lieux et les moments de la journée de manière naturelle dans le texte.";
@@ -2095,6 +2185,7 @@
             document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && detectionAuto) echantillonner(); });
 
             chargerConfigLocale();
+            chargerRecitHtml();
             chargerCacheLocal();                 // le mode local s'affiche immédiatement
             majAffichageHistorique(); rafraichirVoiture(); majMode();
 
