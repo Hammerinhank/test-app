@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.51.0</title>
+    <title>Ma Géolocalisation — v1.52.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -63,6 +63,7 @@
             background: rgba(255,255,255,0.95); color: #1d1d1f; border-radius: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.25);
         }
+        #btn-trajet-carte.actif { background: #007aff; color: #fff; }
         #btn-suivi.eco { background: #ff9500; color: #fff; }
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
@@ -330,6 +331,7 @@
         <div id="bloc-info" class="info"></div>
         <div id="map"></div>
         <div id="barre-carte">
+            <button id="btn-trajet-carte" class="btn-carte-flottant" onclick="basculerParcours()" title="Afficher/masquer le trajet">🗺️ Trajet</button>
             <button id="btn-suivi" class="btn-carte-flottant" onclick="basculerSuivi()">📡 Suivi</button>
             <button id="btn-fermer-carte" class="btn-carte-flottant" onclick="basculerPleinEcran()">✕ Fermer</button>
         </div>
@@ -472,7 +474,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.51.0';
+        const VERSION = '1.52.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -888,7 +890,7 @@
             // Suivi : toujours OFF à l'entrée en plein écran, et OFF à la sortie
             if(pleinEcran){ modeSuivi='off'; appliquerModeSuivi(); }
             else { modeSuivi='off'; arreterSuivi(); majEtatSuivi(); }
-            majBarreNavParcours();
+            majBarreNavParcours(); majBoutonTrajetCarte();
         }
 
         // ===== Suivi en temps réel de ma position (plein écran) — 3 états : off → éco → normal =====
@@ -1698,7 +1700,7 @@
                 btn.classList.remove('actif'); btn.textContent='🗺️ Afficher tous les stationnements';
                 statut.textContent='';
                 majAffichageHistorique();   // retire les pastilles de la liste
-                majBarreNavParcours();
+                majBarreNavParcours(); majBoutonTrajetCarte();
                 return;
             }
             if(!afficherParcours(true)) return;   // échec si historique vide
@@ -1706,7 +1708,7 @@
             btn.classList.add('actif'); btn.textContent='🗺️ Masquer les stationnements';
             statut.textContent='🗺️ '+historique.length+' stationnement(s) reliés par ordre chronologique.';
             majAffichageHistorique();   // ajoute les pastilles dans la liste
-            majBarreNavParcours();
+            majBarreNavParcours(); majBoutonTrajetCarte();
         }
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
@@ -1731,6 +1733,11 @@
         }
         function parcoursPrecedent(){ allerVersStationnement(-1); }   // ◀ vers le plus ancien
         function parcoursSuivant(){ allerVersStationnement(1); }      // ▶ vers le plus récent
+        function majBoutonTrajetCarte(){
+            const b=document.getElementById('btn-trajet-carte'); if(!b) return;
+            b.classList.toggle('actif', parcoursVisible);
+            b.textContent = parcoursVisible ? '🗺️ Masquer' : '🗺️ Trajet';
+        }
         function majBarreNavParcours(){
             const barre=document.getElementById('barre-nav-parcours'); if(!barre) return;
             const actif = pleinEcran && parcoursVisible && historique.length>0;
