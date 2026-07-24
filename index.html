@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.45.0</title>
+    <title>Ma Géolocalisation — v1.46.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -144,12 +144,20 @@
         #btn-recap.actif:active { background: #3f3ea8; }
         #btn-recap.copie { background: #34c759; color: #fff; }
         #btn-page.actif { background: #5856d6; color: #fff; }
-        .page-recit { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; }
-        .page-recit.ouvert { display: block; }
+        .page-recit { display: none; }
+        .page-recit.ouvert {
+            display: block; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 15000; background: #f5f5f7; overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px calc(env(safe-area-inset-bottom, 0px) + 20px);
+        }
+        .page-barre { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .page-titre { font-size: 16px; font-weight: 700; color: #1d1d1f; }
+        .page-outils { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .page-outils button { margin-top: 0; }
         .page-rendu {
-            background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; padding: 14px;
-            text-align: left; font-size: 14px; line-height: 1.6; color: #1d1d1f;
-            max-height: 60vh; overflow-y: auto; word-break: break-word;
+            background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; padding: 16px;
+            text-align: left; font-size: 15px; line-height: 1.65; color: #1d1d1f; word-break: break-word;
         }
         .page-rendu img { max-width: 100%; height: auto; }
         .page-rendu h1, .page-rendu h2, .page-rendu h3 { margin: 0.6em 0 0.3em; line-height: 1.3; }
@@ -254,8 +262,15 @@
 
         <button id="btn-page" class="btn-gris" onclick="basculerPageRecit()">📄 Page du récit</button>
         <div id="panneau-page" class="page-recit">
+            <div class="page-barre">
+                <span class="page-titre">📄 Récit du voyage</span>
+                <button class="btn-carte-flottant" onclick="basculerPageRecit()">✕ Fermer</button>
+            </div>
             <div id="page-rendu" class="page-rendu"></div>
-            <button class="btn-gris" onclick="ouvrirEditeurRecit()">✏️ Mettre à jour la page</button>
+            <div class="page-outils">
+                <button class="btn-gris" onclick="ouvrirEditeurRecit()">✏️ Mettre à jour la page</button>
+                <button id="btn-effacer-page" class="btn-danger" onclick="effacerRecitHtml()">🗑️ Effacer la page</button>
+            </div>
             <div id="editeur-recit" class="editeur-recit">
                 <label class="recap-label" for="page-source">Colle ici le code HTML de la page</label>
                 <textarea id="page-source" class="recap-zone" rows="10" placeholder="&lt;h2&gt;Mon voyage&lt;/h2&gt;&lt;p&gt;…&lt;/p&gt;"></textarea>
@@ -425,7 +440,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.45.0';
+        const VERSION = '1.46.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1974,13 +1989,31 @@
             const panneau=document.getElementById('panneau-page');
             if(panneau.classList.contains('ouvert')){
                 panneau.classList.remove('ouvert');
+                document.body.classList.remove('pas-de-scroll');
                 btn.classList.remove('actif'); btn.textContent='📄 Page du récit';
                 fermerEditeurRecit();
                 return;
             }
             afficherPageRecit();
             panneau.classList.add('ouvert');
-            btn.classList.add('actif'); btn.textContent='📄 Masquer la page du récit';
+            document.body.classList.add('pas-de-scroll');   // la page occupe tout l'écran
+            panneau.scrollTop = 0;
+            btn.classList.add('actif'); btn.textContent='📄 Page du récit (ouverte)';
+        }
+        function effacerRecitHtml(){
+            if(!recitHtml.trim()){
+                const st=document.getElementById('page-statut');
+                if(st){ st.style.color='#86868b'; st.textContent="La page est déjà vide."; }
+                return;
+            }
+            if(!confirm("Effacer tout le contenu de la page du récit ?")) return;
+            recitHtml='';
+            try { localStorage.setItem(CLE_RECIT, ''); } catch(e){}
+            afficherPageRecit();
+            fermerEditeurRecit();
+            majBoutonEffacer();
+            const st=document.getElementById('page-statut');
+            if(st){ st.style.color='#34c759'; st.textContent="🗑️ Page effacée."; }
         }
         function ouvrirEditeurRecit(){
             const e=document.getElementById('editeur-recit');
