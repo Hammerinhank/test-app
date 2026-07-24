@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.49.0</title>
+    <title>Ma Géolocalisation — v1.51.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -142,6 +142,7 @@
         #btn-parcours.actif { background: #007aff; color: white; }
         #btn-recap.actif { background: #5856d6; color: #fff; }
         #btn-recap.actif:active { background: #3f3ea8; }
+        #btn-copier-illustre.refus { background: #ff3b30; color: #fff; }
         #btn-recap.copie { background: #34c759; color: #fff; }
         #btn-page.actif { background: #5856d6; color: #fff; }
         .page-recit { display: none; }
@@ -159,7 +160,8 @@
             border-bottom: 1px solid #e0e0e0; margin-bottom: 14px;
         }
         .page-titre { font-size: 16px; font-weight: 700; color: #1d1d1f; }
-        .page-barre-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .page-barre-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+        #btn-copier-html.copie { background: #34c759; }
         .btn-barre { width: auto; padding: 9px 14px; font-size: 14px; background: #007aff; color: #fff; border-radius: 18px; }
         .btn-barre:active { background: #0051d5; }
         .btn-barre-fermer { background: #e8e8ed; color: #1d1d1f; font-weight: 700; }
@@ -275,6 +277,7 @@
             <label class="recap-label" for="texte-recap">Récapitulatif des stationnements</label>
             <textarea id="texte-recap" class="recap-zone" readonly rows="10"></textarea>
 
+            <button id="btn-copier-illustre" class="btn-voiture" onclick="copierRequeteIllustree()">🖼️ Copier la requête + la page illustrée</button>
             <div class="recap-actions">
                 <button class="mini valider" onclick="copierRecap()">📋 Copier l'ensemble</button>
                 <button class="mini annuler" onclick="basculerRecap()">Fermer</button>
@@ -288,6 +291,7 @@
             <div class="page-barre">
                 <span class="page-titre">📄 Récit du voyage</span>
                 <div class="page-barre-actions">
+                    <button id="btn-copier-html" class="btn-barre" onclick="copierRecitHtml()" title="Copier le code HTML">📋</button>
                     <button id="btn-mode-edition" class="btn-barre" onclick="passerEnEdition()">✏️ Modifier</button>
                     <button class="btn-barre btn-barre-fermer" onclick="basculerPageRecit()">✕</button>
                 </div>
@@ -468,7 +472,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.49.0';
+        const VERSION = '1.51.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -2046,6 +2050,41 @@
             setTimeout(()=>{ try{ document.getElementById('page-source').focus(); }catch(e){} }, 200);
         }
         function annulerEdition(){ passerEnLecture(); statutPage("Modifications abandonnées."); }
+        // Copie le code HTML brut de la page (pour le donner à une IA)
+        let minuteurCopieHtml = null;
+        async function copierRecitHtml(){
+            const source = (document.getElementById('vue-edition').classList.contains('ouvert'))
+                         ? (document.getElementById('page-source').value || '')   // en édition : ce qui est à l'écran
+                         : recitHtml;
+            if(!source.trim()){ statutPage("Rien à copier : la page est vide."); return; }
+            const btn=document.getElementById('btn-copier-html');
+            const confirmer=()=>{
+                statutPage("✅ Code HTML copié ("+source.length+" caractères).", '#34c759');
+                if(btn){
+                    if(minuteurCopieHtml) clearTimeout(minuteurCopieHtml);
+                    btn.classList.add('copie'); btn.textContent='✅';
+                    minuteurCopieHtml=setTimeout(()=>{ btn.classList.remove('copie'); btn.textContent='📋'; minuteurCopieHtml=null; }, 2500);
+                }
+            };
+            try{
+                if(navigator.clipboard && window.isSecureContext){
+                    await navigator.clipboard.writeText(source);
+                    confirmer(); return;
+                }
+                throw new Error('presse-papier indisponible');
+            }catch(e){
+                try{
+                    const tmp=document.createElement('textarea');
+                    tmp.value=source; tmp.style.position='fixed'; tmp.style.opacity='0';
+                    document.body.appendChild(tmp);
+                    tmp.focus(); tmp.setSelectionRange(0, source.length);
+                    const ok = document.execCommand && document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    if(ok){ confirmer(); return; }
+                }catch(_){}
+                statutPage("⚠️ Copie automatique refusée par le navigateur.\n→ Touche « ✏️ Modifier », puis sélectionne et copie le texte à la main.", '#ff9500');
+            }
+        }
         function basculerPageRecit(){
             const btn=document.getElementById('btn-page');
             const panneau=document.getElementById('panneau-page');
@@ -2083,6 +2122,31 @@
 
 
         // ===== Page illustrée : articles Wikipédia situés à proximité de chaque point =====
+        // Marque invisible : elle prouve que la page vient bien du générateur illustré.
+        const MARQUE_ILLUSTREE = 'carnet-illustre-v1';
+        function pageEstIllustree(){ return recitHtml.indexOf(MARQUE_ILLUSTREE) !== -1; }
+        const REQUETE_ILLUSTREE =
+"Voici le code HTML d'un carnet de voyage généré automatiquement.\n"+
+"Transforme-le en un récit fluide et littéraire, à la première personne.\n"+
+"\n"+
+"Règles impératives :\n"+
+"- Réponds UNIQUEMENT avec du code HTML valide, sans texte d'introduction\n"+
+"  ni balises Markdown.\n"+
+"- Conserve TOUTES les balises <figure>, <img> et <figcaption> à\n"+
+"  l'identique : ne modifie jamais les attributs src, alt ni les liens.\n"+
+"- Garde les images à leur place dans la chronologie des étapes.\n"+
+"- Conserve les liens vers Wikipédia et Google Maps, ainsi que la mention\n"+
+"  de licence en pied de page.\n"+
+"- Conserve la balise <style> existante.\n"+
+"\n"+
+"Ce que tu dois transformer :\n"+
+"- Remplace les titres bruts, les dates techniques et les extraits\n"+
+"  encyclopédiques par une narration continue qui relie les étapes entre\n"+
+"  elles (déplacements, atmosphère, moments de la journée).\n"+
+"- Reformule les extraits Wikipédia avec tes propres mots plutôt que de\n"+
+"  les recopier, en gardant les faits exacts.\n"+
+"- Intègre mes commentaires personnels (entre guillemets) dans le récit.\n"+
+"- N'invente aucun lieu ni fait qui ne figure pas dans le document.";
         async function chercherWikiProche(lat, lon){
             const url='https://fr.wikipedia.org/w/api.php?action=query&format=json&origin=*'
                     +'&generator=geosearch&ggscoord='+encodeURIComponent(lat+'|'+lon)
@@ -2147,7 +2211,7 @@
                       +'figcaption{font-size:12px;color:#86868b;margin-top:4px}'
                       +'.extrait{margin:0 0 8px}.extrait.vide{color:#b0b0b6;font-style:italic}'
                       +'.carte{margin:0;font-size:13px}a{color:#007aff}';
-            recitHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+            recitHtml = '<!DOCTYPE html><!--'+MARQUE_ILLUSTREE+'--><html lang="fr"><head><meta charset="utf-8">'
                       + '<meta name="viewport" content="width=device-width, initial-scale=1">'
                       + '<title>Récit du voyage</title><style>'+style+'</style></head><body>'
                       + '<h1>Récit du voyage</h1>'
@@ -2263,8 +2327,45 @@
                 return false;
             }
         }
-        function basculerRecap(){
-            const btn=document.getElementById('btn-recap');
+        // Requête « récit illustré » + code HTML de la page — refusé si la page n'a pas été générée
+        let minuteurRefus = null;
+        function flashRefus(){
+            const b=document.getElementById('btn-copier-illustre'); if(!b) return;
+            if(minuteurRefus) clearTimeout(minuteurRefus);
+            b.classList.add('refus'); b.textContent='⛔ Page non générée';
+            minuteurRefus=setTimeout(()=>{ b.classList.remove('refus'); b.textContent='🖼️ Copier la requête + la page illustrée'; minuteurRefus=null; }, 3000);
+        }
+        async function copierRequeteIllustree(){
+            if(!recitHtml.trim()){
+                statutRecap("⛔ Refusé : la page du récit est vide.\n→ Utilise d'abord « 🖼️ Générer la page illustrée (Wikipédia) ».", '#ff3b30');
+                flashRefus(); return;
+            }
+            if(!pageEstIllustree()){
+                statutRecap("⛔ Refusé : cette page n'a pas été produite par « 🖼️ Générer la page illustrée (Wikipédia) ».\n→ Cette requête n'a de sens que sur un carnet illustré. Régénère la page, ou utilise « 📋 Copier l'ensemble » pour le texte simple.", '#ff3b30');
+                flashRefus(); return;
+            }
+            const texte = REQUETE_ILLUSTREE + "\n\n" + recitHtml;
+            try{
+                if(navigator.clipboard && window.isSecureContext){
+                    await navigator.clipboard.writeText(texte);
+                    statutRecap("✅ Requête + page illustrée copiées ("+texte.length+" caractères).", '#34c759');
+                    confirmerCopieSurBouton(); return;
+                }
+                throw new Error('presse-papier indisponible');
+            }catch(e){
+                try{
+                    const tmp=document.createElement('textarea');
+                    tmp.value=texte; tmp.style.position='fixed'; tmp.style.opacity='0';
+                    document.body.appendChild(tmp);
+                    tmp.focus(); tmp.setSelectionRange(0, texte.length);
+                    const ok = document.execCommand && document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    if(ok){ statutRecap("✅ Requête + page illustrée copiées.", '#34c759'); confirmerCopieSurBouton(); return; }
+                }catch(_){}
+                statutRecap("⚠️ Copie automatique refusée par le navigateur.\n→ Ouvre « 📄 Récit du voyage » puis utilise le bouton 📋 de sa barre.", '#ff9500');
+            }
+        }
+        function basculerRecap(){            const btn=document.getElementById('btn-recap');
             const panneau=document.getElementById('panneau-recap');
             if(panneau.classList.contains('ouvert')){
                 panneau.classList.remove('ouvert');
