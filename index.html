@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.47.0</title>
+    <title>Ma Géolocalisation — v1.48.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -177,13 +177,15 @@
             color: #1d1d1f; background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; padding: 12px; resize: vertical;
         }
         .page-rendu {
-            background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; padding: 16px;
-            text-align: left; font-size: 15px; line-height: 1.65; color: #1d1d1f; word-break: break-word;
+            background: #fff; border: 1px solid #d1d1d6; border-radius: 8px; padding: 0;
+            text-align: left; overflow: hidden;
+        }
+        .cadre-recit {
+            display: block; width: 100%; border: 0; border-radius: 8px; background: #fff;
+            height: calc(100vh - 190px); min-height: 300px;
         }
         .page-vide-bloc { text-align: center; padding: 22px 10px; }
         .page-vide-bloc p { font-size: 14px; color: #86868b; margin-bottom: 16px; }
-        .page-rendu img { max-width: 100%; height: auto; }
-        .page-rendu h1, .page-rendu h2, .page-rendu h3 { margin: 0.6em 0 0.3em; line-height: 1.3; }
         .recap { display: none; margin-top: 12px; padding: 14px; background: #f5f5f7; border-radius: 12px; }
         .recap.ouvert { display: block; }
         .recap-zone {
@@ -465,7 +467,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.47.0';
+        const VERSION = '1.48.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1995,14 +1997,19 @@
         function chargerRecitHtml(){
             try { recitHtml = localStorage.getItem(CLE_RECIT) || ''; } catch(e){ recitHtml=''; }
         }
-        // Nettoyage minimal : on retire scripts, iframes et gestionnaires d'événements du HTML collé
-        function nettoyerHtml(src){
-            return (src||'')
-                .replace(/<\s*script[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-                .replace(/<\s*(iframe|object|embed)[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-                .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-                .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-                .replace(/javascript\s*:/gi, '');
+        // Le contenu est affiché dans une iframe SANDBOX : les scripts s'exécutent normalement,
+        // mais sont isolés de l'application (pas d'accès au token GitHub ni à l'historique).
+        function documentComplet(src){
+            return /<!DOCTYPE/i.test(src) || /<\s*html[\s>]/i.test(src);
+        }
+        function construireDocumentRecit(src){
+            if(documentComplet(src)) return src;      // page complète fournie telle quelle
+            return '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">'
+                 + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                 + '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;'
+                 + 'font-size:15px;line-height:1.65;color:#1d1d1f;margin:0;padding:16px;background:#fff;}'
+                 + 'img{max-width:100%;height:auto}h1,h2,h3{line-height:1.3;margin:.6em 0 .3em}</style>'
+                 + '</head><body>' + src + '</body></html>';
         }
         function afficherPageRecit(){
             const bloc=document.getElementById('page-rendu'); if(!bloc) return;
@@ -2011,7 +2018,9 @@
                     '<button class="btn-voiture" onclick="passerEnEdition()">✏️ Coller le récit</button></div>';
                 return;
             }
-            bloc.innerHTML = nettoyerHtml(recitHtml);
+            bloc.innerHTML='<iframe id="cadre-recit" class="cadre-recit" title="Récit" '+
+                'sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads allow-forms allow-modals"></iframe>';
+            document.getElementById('cadre-recit').srcdoc = construireDocumentRecit(recitHtml);
         }
         function statutPage(txt, couleur){
             const st=document.getElementById('page-statut'); if(!st) return;
