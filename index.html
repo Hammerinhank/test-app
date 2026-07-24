@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.42.0</title>
+    <title>Ma Géolocalisation — v1.44.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -89,6 +89,7 @@
             padding: 20px; text-align: left; box-shadow: 0 8px 30px rgba(0,0,0,0.3);
         }
         .modale-titre { font-size: 17px; font-weight: 700; color: #ff3b30; margin-bottom: 10px; }
+        .modale-titre-bleu { color: #007aff; }
         .modale-message { font-size: 14px; line-height: 1.5; color: #1d1d1f; white-space: pre-line; }
         .modale-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
         .modale-actions .mini { width: 100%; padding: 13px; font-size: 15px; }
@@ -355,6 +356,19 @@
         <div id="version-appli" class="version-appli"></div>
     </div>
 
+    <div id="modale-chargement" class="modale-fond">
+        <div class="modale-boite">
+            <div class="modale-titre modale-titre-bleu">📥 Charger cette sauvegarde</div>
+            <div id="chargement-message" class="modale-message"></div>
+            <div class="modale-actions">
+                <button id="btn-fusionner" class="mini valider" onclick="executerChargement('fusion')">➕ Fusionner avec l'existant</button>
+                <button id="btn-remplacer" class="mini suppr" onclick="executerChargement('remplacement')">♻️ Remplacer tout le contenu</button>
+                <button class="mini annuler" onclick="fermerModaleChargement()">Annuler</button>
+            </div>
+            <div id="chargement-statut" class="modale-statut"></div>
+        </div>
+    </div>
+
     <div id="modale-destruction" class="modale-fond">
         <div class="modale-boite">
             <div class="modale-titre">🗑️ Détruire cette sauvegarde ?</div>
@@ -383,7 +397,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.42.0';
+        const VERSION = '1.44.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -1741,10 +1755,15 @@
             }catch(e){ bloc.innerHTML=''; statutTrajets("Lecture de la liste impossible :\n\n"+messageErreur(e), '#ff3b30'); }
         }
 
+        // Fusion ET remplacement exigent une sauvegarde préalable du contenu courant
+        // (sauf si la liste est déjà vide, auquel cas il n'y a rien à perdre).
+        function peutCharger(){ return historique.length===0 || estSauvegarde(); }
+        let trajetACharger = null;   // { fichier, entrees }
+
         async function chargerTrajet(fichierEncode){
             if(!prerequisTrajets()) return;
             const fichier=decodeURIComponent(fichierEncode);
-            statutTrajets("📥 Chargement de « "+echapper(fichier)+" »…");
+            statutTrajets("📥 Lecture de « "+echapper(fichier)+" »…");
             try{
                 const r=await fetch(apiTrajet(fichier)+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
                 if(!r.ok) throw await erreurHttp(r);
@@ -1752,16 +1771,60 @@
                 const texte=new TextDecoder().decode(bytesFromB64(d.content));
                 const donnees=await dechiffrer(JSON.parse(texte), passphrase);
                 const entrees=Array.isArray(donnees) ? donnees : (donnees.entrees||[]);
-                if(!entrees.length){ statutTrajets("⚠️ Cette sauvegarde ne contient aucun stationnement.", '#ff9500'); return; }
-                const avant=historique.length;
-                historique=fusionner(historique, entrees);          // union par id, triée par date
-                sauverCacheLocal();
-                idSelection=null; majAffichageHistorique(); rafraichirVoiture(); majDistance();
-                const ajoutes=historique.length-avant;
-                statutTrajets("✅ « "+echapper(fichier)+" » chargé.\n"+ajoutes+" stationnement(s) ajouté(s) — total : "+historique.length+", classés par date.", '#34c759');
-                await persister();
-                majBoutonEffacer();
-            }catch(e){ statutTrajets("Chargement impossible :\n\n"+messageErreur(e), '#ff3b30'); }
+                if(!entrees.length){ statutTrajets("⚠️ Cette sauvegarde ne contient aucun point.", '#ff9500'); return; }
+                trajetACharger={ fichier, entrees };
+                statutTrajets('');
+                const chargementPossible=peutCharger();
+                document.getElementById('chargement-message').textContent =
+                    "Fichier : "+fichier+"\n\n"+
+                    "Cette sauvegarde contient "+entrees.length+" point"+(entrees.length>1?"s":"")+".\n"+
+                    "Ta liste actuelle en contient "+historique.length+".\n\n"+
+                    "• Fusionner : les points s'ajoutent aux tiens, classés par date, sans rien écraser.\n"+
+                    "• Remplacer : ta liste actuelle est effacée et remplacée par cette sauvegarde."+
+                    (chargementPossible ? "" :
+                     "\n\n⚠️ Chargement indisponible : ton contenu actuel n'a pas été sauvegardé.\n→ Fais d'abord « 💾 Sauvegarder le trajet actuel », puis reviens ici.");
+                document.getElementById('btn-remplacer').disabled=!chargementPossible;
+                document.getElementById('btn-fusionner').disabled=!chargementPossible;
+                document.getElementById('chargement-statut').textContent='';
+                document.getElementById('modale-chargement').classList.add('ouvert');
+            }catch(e){ statutTrajets("Lecture impossible :\n\n"+messageErreur(e), '#ff3b30'); }
+        }
+
+        function fermerModaleChargement(){
+            document.getElementById('modale-chargement').classList.remove('ouvert');
+            document.getElementById('chargement-statut').textContent='';
+            trajetACharger=null;
+        }
+
+        async function executerChargement(mode){
+            if(!trajetACharger){ fermerModaleChargement(); return; }
+            const { fichier, entrees } = trajetACharger;
+            const st=document.getElementById('chargement-statut');
+            if(!peutCharger()){
+                st.style.color='#ff3b30';
+                st.textContent="❌ Chargement refusé : le contenu actuel n'a pas été sauvegardé.";
+                return;
+            }
+            const avant=historique.length;
+            if(mode==='remplacement'){
+                historique=[...entrees].sort((a,b)=> new Date(a.date) - new Date(b.date));
+                if(parcoursVisible) basculerParcours();
+                if(marqueurVoiture && carte){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
+            } else {
+                historique=fusionner(historique, entrees);      // union par id, triée par date
+            }
+            sauverCacheLocal();
+            idSelection=null; idNoteVisible=null;
+            majAffichageHistorique(); rafraichirVoiture(); majDistance();
+            fermerModaleChargement();
+            if(mode==='remplacement'){
+                marquerSauvegarde();      // le contenu est exactement celui du fichier : il est donc sauvegardé
+                statutTrajets("♻️ « "+echapper(fichier)+" » chargé en remplacement.\n"+historique.length+" point(s) — l'ancien contenu reste dans ses propres sauvegardes.", '#34c759');
+            } else {
+                statutTrajets("✅ « "+echapper(fichier)+" » fusionné.\n"+(historique.length-avant)+" point(s) ajouté(s) — total : "+historique.length+", classés par date.", '#34c759');
+            }
+            await persister();
+            majBoutonEffacer();
         }
 
         // ===== Destruction d'un fichier de sauvegarde (confirmation par saisie) =====
