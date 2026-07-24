@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.40.0</title>
+    <title>Ma Géolocalisation — v1.41.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -28,6 +28,12 @@
         button:active { background-color: #248a3d; }
         .btn-voiture { background-color: #007aff; margin-top: 12px; }
         .btn-voiture:active { background-color: #0051d5; }
+        .btn-lieu { background-color: #c76a00; margin-top: 12px; }
+        .btn-lieu:active { background-color: #964f00; }
+        .pastille-parcours.lieu { background: #c76a00; }
+        .mini.voir.lieu { background: #c76a00; }
+        .mini.voir.lieu:active { background: #964f00; }
+        .icone-lieu { font-size: 26px; line-height: 36px; text-align: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
         .nav-row { display: flex; gap: 10px; margin-top: 12px; }
         .btn-nav { flex: 1; width: auto; background-color: #e8e8ed; color: #1d1d1f; font-size: 15px; padding: 12px 8px; }
         .btn-nav:active { background-color: #d1d1d6; }
@@ -204,6 +210,7 @@
         <div id="parking-url-statut" class="parking-url-statut"></div>
         <button onclick="trouverPosition()">Ma Position Actuelle</button>
         <button class="btn-voiture" onclick="memoriserVoiture()">🚗 Je suis garé ici</button>
+        <button class="btn-lieu" onclick="memoriserLieu()">⭐ C'est un lieu intéressant</button>
 
         <div class="nav-row">
             <button class="btn-nav" onclick="allerMaPosition()">📍 Ma position</button>
@@ -376,7 +383,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.40.0';
+        const VERSION = '1.41.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -428,6 +435,13 @@
         let candidatArret = null;     // {lat, lon} où la voiture s'est arrêtée
         let tDebutArret = null;       // horodatage du début d'arrêt
         const iconeVoiture = L.divIcon({ html:'🚗', className:'icone-voiture', iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-18] });
+        const iconeLieuMarq = L.divIcon({ html:'⭐', className:'icone-lieu', iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-18] });
+        // Un lieu porte type:'lieu' ; tout le reste (y compris les anciennes entrées sans type) est un stationnement
+        function estLieu(e){ return !!e && e.type==='lieu'; }
+        function dernierParking(){
+            for(let i=historique.length-1;i>=0;i--) if(!estLieu(historique[i])) return historique[i];
+            return null;
+        }
 
         // ================= Utilitaires =================
         function echapper(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
@@ -844,13 +858,17 @@
 
         // ===== Détection automatique du stationnement (voiture → arrêt prolongé) =====
         function distanceMetres(la1,lo1,la2,lo2){ return L.latLng(la1,lo1).distanceTo(L.latLng(la2,lo2)); }
-        // Renvoie le DERNIER stationnement s'il est au même endroit (donc consécutif), sinon null.
-        // Comparer uniquement au dernier garantit qu'un retour au même endroit APRÈS s'être garé
-        // ailleurs entre-temps est bien considéré comme un nouveau stationnement.
-        function memePlaceQueDernier(lat, lon){
-            if(!historique.length) return null;
-            const dernier = historique[historique.length-1];
-            return distanceMetres(dernier.lat, dernier.lon, lat, lon) < SEUIL_MEME_PLACE ? dernier : null;
+        // Renvoie la DERNIÈRE entrée DE MÊME NATURE si elle est au même endroit (donc consécutive), sinon null.
+        // Comparer par type permet de noter un lieu là où l'on vient de se garer, et inversement.
+        function memePlaceQueDernier(lat, lon, type){
+            const cible = (type==='lieu');
+            for(let i=historique.length-1;i>=0;i--){
+                if(estLieu(historique[i])===cible){
+                    const d=historique[i];
+                    return distanceMetres(d.lat, d.lon, lat, lon) < SEUIL_MEME_PLACE ? d : null;
+                }
+            }
+            return null;
         }
         function statutDetection(txt, couleur){
             const el=document.getElementById('detection-statut'); if(!el) return;
@@ -923,7 +941,7 @@
             const adresse = await recupererAdresseCourte(lat, lon);
             const entree = { id:Date.now(), lat, lon, adresse, date:(date||new Date()).toISOString(), note:'', auto:true };
             historique.push(entree); idSelection=entree.id;
-            if(carte){ afficherVoiture(lat,lon); marqueurVoiture.bindPopup(popupVoiture(entree)); }
+            if(carte){ afficherVoiture(lat,lon,entree); marqueurVoiture.bindPopup(popupVoiture(entree)); }
             majAffichageHistorique(); majDistance();
             await persister();
             const lieu = adresse ? adresse : (lat.toFixed(5)+', '+lon.toFixed(5));
@@ -1205,9 +1223,10 @@
         function entreeCourante(){
             if(!historique.length) return null;
             if(idSelection!=null){ const e=historique.find(x=>x.id===idSelection); if(e) return e; }
-            return historique[historique.length-1];
+            return dernierParking() || historique[historique.length-1];   // la « voiture » = dernier stationnement
         }
-        function afficherVoiture(lat,lon){
+        // L'icône suit la nature de l'entrée affichée : 🚗 pour un stationnement, ⭐ pour un lieu
+        function afficherVoiture(lat,lon,entree){
             assurerCarte(lat,lon,16);
             if(marqueurVoiture===null){
                 marqueurVoiture=L.marker([lat,lon],{icon:iconeVoiture,draggable:false}).addTo(carte);
@@ -1216,13 +1235,20 @@
             } else {
                 marqueurVoiture.setLatLng([lat,lon]);
             }
+            const e = entree || entreeCourante();
+            marqueurVoiture.setIcon(estLieu(e) ? iconeLieuMarq : iconeVoiture);
         }
-        function popupVoiture(e){ const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5)); return `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`; }
-        function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } majAdresseVoiture(); }
+        function popupVoiture(e){
+            const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
+            return estLieu(e)
+                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${lieu}`
+                : `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`;
+        }
+        function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon,e); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } majAdresseVoiture(); }
         function selectionnerEntree(id){
             if(modeCorrection) annulerCorrection();   // on ne reste pas en correction en changeant d'entrée
             idSelection=id; const e=entreeCourante(); if(!e) return;
-            afficherVoiture(e.lat,e.lon); carte.setView([e.lat,e.lon],17);
+            afficherVoiture(e.lat,e.lon,e); carte.setView([e.lat,e.lon],17);
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
             majAffichageHistorique(); majDistance();
         }
@@ -1233,7 +1259,7 @@
             idSelection = id;
             assurerCarte(e.lat, e.lon, 17);
             carte.setView([e.lat, e.lon], 17);
-            afficherVoiture(e.lat, e.lon);
+            afficherVoiture(e.lat, e.lon, e);
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
             const n = [...historique].sort((a,b)=> new Date(a.date)-new Date(b.date)).findIndex(x=>x.id===id)+1;
             document.getElementById('statut-voiture').textContent = "📍 Carte centrée sur le stationnement n°"+n+".";
@@ -1254,31 +1280,34 @@
             if(idNoteVisible!==null){ idNoteVisible=null; majAffichageHistorique(); }
         }
 
-        function memoriserVoiture(){
+        function memoriserVoiture(){ memoriserEntree('parking'); }
+        function memoriserLieu(){ memoriserEntree('lieu'); }
+        function memoriserEntree(type){
+            const cestUnLieu = (type==='lieu');
             idNoteVisible=null;
             const statut=document.getElementById('statut-voiture');
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
-            statut.textContent="Enregistrement de la position de la voiture…";
+            statut.textContent = cestUnLieu ? "Enregistrement du lieu…" : "Enregistrement de la position de la voiture…";
             navigator.geolocation.getCurrentPosition(async (position)=>{
                 const lat=position.coords.latitude, lon=position.coords.longitude;
-                const dejaLa = memePlaceQueDernier(lat, lon);
+                const dejaLa = memePlaceQueDernier(lat, lon, type);
                 if(dejaLa){
                     const lieu = dejaLa.adresse ? echapper(dejaLa.adresse) : (dejaLa.lat.toFixed(5)+', '+dejaLa.lon.toFixed(5));
                     idSelection = dejaLa.id;
-                    afficherVoiture(dejaLa.lat, dejaLa.lon); carte.setView([dejaLa.lat, dejaLa.lon],16);
+                    afficherVoiture(dejaLa.lat, dejaLa.lon, dejaLa); carte.setView([dejaLa.lat, dejaLa.lon],16);
                     marqueurVoiture.bindPopup(popupVoiture(dejaLa)).openPopup();
-                    statut.innerHTML="ℹ️ Déjà enregistré ici le "+echapper(formaterDate(dejaLa.date))+" ("+lieu+") — pas de doublon créé.";
+                    statut.innerHTML=(cestUnLieu?"ℹ️ Ce lieu est déjà noté":"ℹ️ Déjà enregistré ici")+" le "+echapper(formaterDate(dejaLa.date))+" ("+lieu+") — pas de doublon créé.";
                     majAffichageHistorique(); majDistance();
                     return;
                 }
                 const adresse=await recupererAdresseCourte(lat,lon);
-                const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
+                const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString(), note:'', type:(cestUnLieu?'lieu':'parking') };
                 historique.push(entree); idSelection=entree.id;
-                afficherVoiture(lat,lon); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
-                statut.textContent="🚗 Stationnement enregistré !";
+                afficherVoiture(lat,lon,entree); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
+                statut.textContent = cestUnLieu ? "⭐ Lieu enregistré !" : "🚗 Stationnement enregistré !";
                 majAffichageHistorique(); majDistance();
                 await persister();
-            }, ()=>{ statut.innerHTML="<span class='error'>Impossible de récupérer la position pour la voiture.</span>"; }, OPTIONS_GEO);
+            }, ()=>{ statut.innerHTML="<span class='error'>Impossible de récupérer la position.</span>"; }, OPTIONS_GEO);
         }
 
         // ================= Saisie manuelle des coordonnées =================
@@ -1309,7 +1338,7 @@
                     echapper(formaterDate(dejaLa.date))+" ("+dejaLieu+").\nAucun doublon n'a été créé.";
                 statut.style.color='#ff9500';
                 idSelection = dejaLa.id;
-                afficherVoiture(dejaLa.lat, dejaLa.lon); carte.setView([dejaLa.lat, dejaLa.lon],16);
+                afficherVoiture(dejaLa.lat, dejaLa.lon, dejaLa); carte.setView([dejaLa.lat, dejaLa.lon],16);
                 marqueurVoiture.bindPopup(popupVoiture(dejaLa)).openPopup();
                 majAffichageHistorique(); majDistance();
                 return;
@@ -1318,7 +1347,7 @@
             const adresse=await recupererAdresseCourte(lat,lon);
             const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString() };
             historique.push(entree); idSelection=entree.id; idNoteVisible=null;
-            afficherVoiture(lat,lon); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
+            afficherVoiture(lat,lon,entree); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
             const lieu=adresse?echapper(adresse):(lat.toFixed(5)+', '+lon.toFixed(5));
             statut.innerHTML="✅ Stationnement ajouté : "+lieu; statut.style.color='#34c759';
             champ.value='';
@@ -1342,17 +1371,17 @@
             // Numérotation chronologique identique à la carte (uniquement quand le trajet est affiché)
             const chrono=[...historique].sort((a,b)=> new Date(a.date)-new Date(b.date));
             const numeroParId=new Map(); chrono.forEach((e,i)=>numeroParId.set(e.id, i+1));
-            const idDerniere = chrono.length ? chrono[chrono.length-1].id : null;
+            const idDerniere = (dernierParking()||{}).id;
             bloc.innerHTML=[...historique].reverse().map(e=>{
                 const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 const actif=(e.id===idCourant)?' actif':'';
                 const pastille = parcoursVisible
-                    ? `<div class="pastille-parcours cliquable${e.id===idDerniere?' derniere':''}" onclick="centrerSurStationnement(${e.id})" role="button" title="Centrer la carte sur ce stationnement">${numeroParId.get(e.id)}</div>`
+                    ? `<div class="pastille-parcours cliquable${estLieu(e)?' lieu':(e.id===idDerniere?' derniere':'')}" onclick="centrerSurStationnement(${e.id})" role="button" title="Centrer la carte sur ce point">${numeroParId.get(e.id)}</div>`
                     : '';
                 const noteZone = (parcoursVisible || e.id===idNoteVisible)
                     ? `<div class="note-zone" contenteditable="false" data-placeholder="Double-cliquez pour écrire une note…" ondblclick="activerNote(this)" onblur="sauverNote(this, ${e.id})" onkeydown="toucheNote(event, this)">${echapper(e.note)}</div>`
                     : '';
-                return `<div class="histo-item${actif}"><div class="histo-ligne"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir" onclick="voirEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>${noteZone}</div>`;
+                return `<div class="histo-item${actif}"><div class="histo-ligne"><div class="histo-gauche">${pastille}<div class="histo-info"><span class="histo-date">${echapper(formaterDate(e.date))}</span><span class="histo-lieu">${lieu}</span></div></div><div class="histo-actions"><button class="mini voir${estLieu(e)?' lieu':''}" onclick="voirEntree(${e.id})">Voir</button><button class="mini suppr" onclick="supprimerEntree(${e.id})">🗑️</button></div></div>${noteZone}</div>`;
             }).join('');
             rafraichirParcours();
             majBoutonEffacer();
@@ -1393,7 +1422,7 @@
             if(idSelection===id) idSelection=null;
             if(idNoteVisible===id) idNoteVisible=null;
             const courante=entreeCourante();
-            if(courante){ afficherVoiture(courante.lat,courante.lon); if(marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante)); }
+            if(courante){ afficherVoiture(courante.lat,courante.lon,courante); if(marqueurVoiture) marqueurVoiture.bindPopup(popupVoiture(courante)); }
             else if(marqueurVoiture){ carte.removeLayer(marqueurVoiture); marqueurVoiture=null; }
             majAffichageHistorique(); majDistance();
             await persister();
@@ -1406,22 +1435,23 @@
             if(!e){ bloc.style.display='none'; bloc.innerHTML=''; return; }
             const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(6)+', '+e.lon.toFixed(6));
             bloc.style.display='block';
-            bloc.innerHTML='<strong>Adresse de la voiture :</strong><br>'+lieu;
+            bloc.innerHTML='<strong>'+(estLieu(e)?'Adresse du lieu':'Adresse de la voiture')+' :</strong><br>'+lieu;
         }
         function majDistance(){
             majAdresseVoiture();
             const blocDist=document.getElementById('distance'), e=entreeCourante();
             if(marqueur===null||!e){ blocDist.textContent=""; return; }
             const p=marqueur.getLatLng();
-            blocDist.textContent="📏 Voiture à "+formaterDistance(L.latLng(p.lat,p.lng).distanceTo(L.latLng(e.lat,e.lon)))+" à vol d'oiseau";
+            blocDist.textContent="📏 "+(estLieu(e)?"Lieu":"Voiture")+" à "+formaterDistance(L.latLng(p.lat,p.lng).distanceTo(L.latLng(e.lat,e.lon)))+" à vol d'oiseau";
         }
 
         // ================= Navigation =================
         function allerVoiture(){
             const statut=document.getElementById('statut-voiture');
-            if(!historique.length){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
+            const p=dernierParking();
+            if(!p){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
             idNoteVisible=null;
-            idSelection=null; selectionnerEntree(historique[historique.length-1].id);
+            idSelection=null; selectionnerEntree(p.id);
             statut.textContent="🚗 Direction ta voiture.";
         }
         function allerMaPosition(){
@@ -1442,7 +1472,7 @@
             if(!e){ allerMaPosition(); statut.textContent="📍 Position affichée. Aucun stationnement enregistré pour l'instant."; return; }
             const p=marqueur.getLatLng();
             assurerCarte(p.lat,p.lng,16);
-            afficherVoiture(e.lat,e.lon);
+            afficherVoiture(e.lat,e.lon,e);
             const limites=L.latLngBounds([[p.lat,p.lng],[e.lat,e.lon]]);
             carte.fitBounds(limites,{padding:[50,50],maxZoom:17});
             statut.textContent="👁️ Ta position et ta voiture sont visibles.";
@@ -1463,7 +1493,7 @@
             modeCorrection=true;
             idCorrection=e.id;
             posAvantCorrection={ lat:e.lat, lon:e.lon };
-            afficherVoiture(e.lat,e.lon);
+            afficherVoiture(e.lat,e.lon,e);
             carte.setView([e.lat,e.lon],18);
             marqueurVoiture.closePopup();
             if(marqueurVoiture.dragging) marqueurVoiture.dragging.enable();
@@ -1521,9 +1551,10 @@
         }
 
         // ================= Parcours : toutes les positions + trait chronologique =================
-        function iconePastille(numero, estDerniere){
+        function iconePastille(numero, estDerniere, cestUnLieu){
+            const cls = cestUnLieu ? ' lieu' : (estDerniere ? ' derniere' : '');
             return L.divIcon({
-                html:'<div class="pastille-parcours'+(estDerniere?' derniere':'')+'">'+numero+'</div>',
+                html:'<div class="pastille-parcours'+cls+'">'+numero+'</div>',
                 className:'', iconSize:[24,24], iconAnchor:[12,12], popupAnchor:[0,-12]
             });
         }
@@ -1539,11 +1570,12 @@
             if(points.length >= 2){
                 L.polyline(points, { color:'#007aff', weight:3, opacity:0.75, dashArray:'6,8' }).addTo(groupe);
             }
+            const idDernierParking = (dernierParking()||{}).id;
             entrees.forEach((e, i)=>{
-                const estDerniere = (i === entrees.length-1);
+                const estDerniere = (e.id === idDernierParking);
                 const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
-                L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere) })
-                    .bindPopup('#'+(i+1)+' — '+formaterDate(e.date)+'<br>'+lieu+
+                L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere, estLieu(e)) })
+                    .bindPopup('#'+(i+1)+(estLieu(e)?' ⭐ lieu':' 🚗 parking')+' — '+formaterDate(e.date)+'<br>'+lieu+
                                '<br><button class="mini voir popup-gmaps" onclick="ouvrirGoogleMaps('+e.lat+','+e.lon+')">🗺️ Ouvrir dans Google Maps</button>')
                     .addTo(groupe);
             });
@@ -1604,7 +1636,7 @@
             const e=l[i];
             idSelection=e.id;
             assurerCarte(e.lat,e.lon,17); carte.setView([e.lat,e.lon],17);
-            afficherVoiture(e.lat,e.lon);
+            afficherVoiture(e.lat,e.lon,e);
             marqueurVoiture.bindPopup(popupVoiture(e)).openPopup();
             majAffichageHistorique(); majDistance(); majBarreNavParcours();
         }
@@ -1854,6 +1886,7 @@
                     ? e.adresse.trim()
                     : "adresse inconnue (coordonnées : " + e.lat.toFixed(6) + ", " + e.lon.toFixed(6) + ")";
                 t += (i+1) + ". Le " + formaterDateLongue(e.date) + "\n";
+                t += "   Nature : " + (estLieu(e) ? "lieu intéressant" : "place de parking") + "\n";
                 t += "   Lieu : " + lieu + "\n";
                 const note = (e.note || '').trim();
                 if(note) t += "   Commentaire : " + note.replace(/\s*\n\s*/g, ' / ') + "\n";
@@ -1937,7 +1970,8 @@
         function itineraireVersVoiture(){
             masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
-            const e=entreeCourante();
+            let e=entreeCourante();
+            if(estLieu(e)) e=dernierParking()||e;      // « M'y conduire » vise toujours la voiture
             if(!e){ statut.innerHTML="<span class='error'>Aucun stationnement enregistré pour l'instant.</span>"; return; }
             const destination=e.lat+','+e.lon;
             // Origine = ta position bleue si connue ; sinon Google Maps utilise le GPS en direct
