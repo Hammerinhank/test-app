@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.48.0</title>
+    <title>Ma Géolocalisation — v1.52.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -63,6 +63,7 @@
             background: rgba(255,255,255,0.95); color: #1d1d1f; border-radius: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.25);
         }
+        #btn-trajet-carte.actif { background: #007aff; color: #fff; }
         #btn-suivi.eco { background: #ff9500; color: #fff; }
         #btn-suivi.normal { background: #34c759; color: #fff; }
         #btn-detection.actif { background: #34c759; color: #fff; }
@@ -142,6 +143,7 @@
         #btn-parcours.actif { background: #007aff; color: white; }
         #btn-recap.actif { background: #5856d6; color: #fff; }
         #btn-recap.actif:active { background: #3f3ea8; }
+        #btn-copier-illustre.refus { background: #ff3b30; color: #fff; }
         #btn-recap.copie { background: #34c759; color: #fff; }
         #btn-page.actif { background: #5856d6; color: #fff; }
         .page-recit { display: none; }
@@ -159,7 +161,8 @@
             border-bottom: 1px solid #e0e0e0; margin-bottom: 14px;
         }
         .page-titre { font-size: 16px; font-weight: 700; color: #1d1d1f; }
-        .page-barre-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .page-barre-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+        #btn-copier-html.copie { background: #34c759; }
         .btn-barre { width: auto; padding: 9px 14px; font-size: 14px; background: #007aff; color: #fff; border-radius: 18px; }
         .btn-barre:active { background: #0051d5; }
         .btn-barre-fermer { background: #e8e8ed; color: #1d1d1f; font-weight: 700; }
@@ -275,6 +278,7 @@
             <label class="recap-label" for="texte-recap">Récapitulatif des stationnements</label>
             <textarea id="texte-recap" class="recap-zone" readonly rows="10"></textarea>
 
+            <button id="btn-copier-illustre" class="btn-voiture" onclick="copierRequeteIllustree()">🖼️ Copier la requête + la page illustrée</button>
             <div class="recap-actions">
                 <button class="mini valider" onclick="copierRecap()">📋 Copier l'ensemble</button>
                 <button class="mini annuler" onclick="basculerRecap()">Fermer</button>
@@ -283,10 +287,12 @@
         </div>
 
         <button id="btn-page" class="btn-gris" onclick="basculerPageRecit()">📄 Récit du voyage</button>
+        <button id="btn-illustrer" class="btn-gris" onclick="genererPageIllustree()">🖼️ Générer la page illustrée (Wikipédia)</button>
         <div id="panneau-page" class="page-recit">
             <div class="page-barre">
                 <span class="page-titre">📄 Récit du voyage</span>
                 <div class="page-barre-actions">
+                    <button id="btn-copier-html" class="btn-barre" onclick="copierRecitHtml()" title="Copier le code HTML">📋</button>
                     <button id="btn-mode-edition" class="btn-barre" onclick="passerEnEdition()">✏️ Modifier</button>
                     <button class="btn-barre btn-barre-fermer" onclick="basculerPageRecit()">✕</button>
                 </div>
@@ -325,6 +331,7 @@
         <div id="bloc-info" class="info"></div>
         <div id="map"></div>
         <div id="barre-carte">
+            <button id="btn-trajet-carte" class="btn-carte-flottant" onclick="basculerParcours()" title="Afficher/masquer le trajet">🗺️ Trajet</button>
             <button id="btn-suivi" class="btn-carte-flottant" onclick="basculerSuivi()">📡 Suivi</button>
             <button id="btn-fermer-carte" class="btn-carte-flottant" onclick="basculerPleinEcran()">✕ Fermer</button>
         </div>
@@ -467,7 +474,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.48.0';
+        const VERSION = '1.52.0';
         const DATE_VERSION = '2026-07-22';
 
         // ================= Configuration par défaut =================
@@ -883,7 +890,7 @@
             // Suivi : toujours OFF à l'entrée en plein écran, et OFF à la sortie
             if(pleinEcran){ modeSuivi='off'; appliquerModeSuivi(); }
             else { modeSuivi='off'; arreterSuivi(); majEtatSuivi(); }
-            majBarreNavParcours();
+            majBarreNavParcours(); majBoutonTrajetCarte();
         }
 
         // ===== Suivi en temps réel de ma position (plein écran) — 3 états : off → éco → normal =====
@@ -1693,7 +1700,7 @@
                 btn.classList.remove('actif'); btn.textContent='🗺️ Afficher tous les stationnements';
                 statut.textContent='';
                 majAffichageHistorique();   // retire les pastilles de la liste
-                majBarreNavParcours();
+                majBarreNavParcours(); majBoutonTrajetCarte();
                 return;
             }
             if(!afficherParcours(true)) return;   // échec si historique vide
@@ -1701,7 +1708,7 @@
             btn.classList.add('actif'); btn.textContent='🗺️ Masquer les stationnements';
             statut.textContent='🗺️ '+historique.length+' stationnement(s) reliés par ordre chronologique.';
             majAffichageHistorique();   // ajoute les pastilles dans la liste
-            majBarreNavParcours();
+            majBarreNavParcours(); majBoutonTrajetCarte();
         }
         // Reconstruit le calque si l'historique change pendant qu'il est affiché (sans recadrer)
         function rafraichirParcours(){ if(parcoursVisible) afficherParcours(false); }
@@ -1726,6 +1733,11 @@
         }
         function parcoursPrecedent(){ allerVersStationnement(-1); }   // ◀ vers le plus ancien
         function parcoursSuivant(){ allerVersStationnement(1); }      // ▶ vers le plus récent
+        function majBoutonTrajetCarte(){
+            const b=document.getElementById('btn-trajet-carte'); if(!b) return;
+            b.classList.toggle('actif', parcoursVisible);
+            b.textContent = parcoursVisible ? '🗺️ Masquer' : '🗺️ Trajet';
+        }
         function majBarreNavParcours(){
             const barre=document.getElementById('barre-nav-parcours'); if(!barre) return;
             const actif = pleinEcran && parcoursVisible && historique.length>0;
@@ -2045,6 +2057,41 @@
             setTimeout(()=>{ try{ document.getElementById('page-source').focus(); }catch(e){} }, 200);
         }
         function annulerEdition(){ passerEnLecture(); statutPage("Modifications abandonnées."); }
+        // Copie le code HTML brut de la page (pour le donner à une IA)
+        let minuteurCopieHtml = null;
+        async function copierRecitHtml(){
+            const source = (document.getElementById('vue-edition').classList.contains('ouvert'))
+                         ? (document.getElementById('page-source').value || '')   // en édition : ce qui est à l'écran
+                         : recitHtml;
+            if(!source.trim()){ statutPage("Rien à copier : la page est vide."); return; }
+            const btn=document.getElementById('btn-copier-html');
+            const confirmer=()=>{
+                statutPage("✅ Code HTML copié ("+source.length+" caractères).", '#34c759');
+                if(btn){
+                    if(minuteurCopieHtml) clearTimeout(minuteurCopieHtml);
+                    btn.classList.add('copie'); btn.textContent='✅';
+                    minuteurCopieHtml=setTimeout(()=>{ btn.classList.remove('copie'); btn.textContent='📋'; minuteurCopieHtml=null; }, 2500);
+                }
+            };
+            try{
+                if(navigator.clipboard && window.isSecureContext){
+                    await navigator.clipboard.writeText(source);
+                    confirmer(); return;
+                }
+                throw new Error('presse-papier indisponible');
+            }catch(e){
+                try{
+                    const tmp=document.createElement('textarea');
+                    tmp.value=source; tmp.style.position='fixed'; tmp.style.opacity='0';
+                    document.body.appendChild(tmp);
+                    tmp.focus(); tmp.setSelectionRange(0, source.length);
+                    const ok = document.execCommand && document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    if(ok){ confirmer(); return; }
+                }catch(_){}
+                statutPage("⚠️ Copie automatique refusée par le navigateur.\n→ Touche « ✏️ Modifier », puis sélectionne et copie le texte à la main.", '#ff9500');
+            }
+        }
         function basculerPageRecit(){
             const btn=document.getElementById('btn-page');
             const panneau=document.getElementById('panneau-page');
@@ -2078,6 +2125,113 @@
             passerEnLecture();
             majBoutonEffacer();
             statutPage("🗑️ Récit effacé.", '#34c759');
+        }
+
+
+        // ===== Page illustrée : articles Wikipédia situés à proximité de chaque point =====
+        // Marque invisible : elle prouve que la page vient bien du générateur illustré.
+        const MARQUE_ILLUSTREE = 'carnet-illustre-v1';
+        function pageEstIllustree(){ return recitHtml.indexOf(MARQUE_ILLUSTREE) !== -1; }
+        const REQUETE_ILLUSTREE =
+"Voici le code HTML d'un carnet de voyage généré automatiquement.\n"+
+"Transforme-le en un récit fluide et littéraire, à la première personne.\n"+
+"\n"+
+"Règles impératives :\n"+
+"- Réponds UNIQUEMENT avec du code HTML valide, sans texte d'introduction\n"+
+"  ni balises Markdown.\n"+
+"- Conserve TOUTES les balises <figure>, <img> et <figcaption> à\n"+
+"  l'identique : ne modifie jamais les attributs src, alt ni les liens.\n"+
+"- Garde les images à leur place dans la chronologie des étapes.\n"+
+"- Conserve les liens vers Wikipédia et Google Maps, ainsi que la mention\n"+
+"  de licence en pied de page.\n"+
+"- Conserve la balise <style> existante.\n"+
+"\n"+
+"Ce que tu dois transformer :\n"+
+"- Remplace les titres bruts, les dates techniques et les extraits\n"+
+"  encyclopédiques par une narration continue qui relie les étapes entre\n"+
+"  elles (déplacements, atmosphère, moments de la journée).\n"+
+"- Reformule les extraits Wikipédia avec tes propres mots plutôt que de\n"+
+"  les recopier, en gardant les faits exacts.\n"+
+"- Intègre mes commentaires personnels (entre guillemets) dans le récit.\n"+
+"- N'invente aucun lieu ni fait qui ne figure pas dans le document.";
+        async function chercherWikiProche(lat, lon){
+            const url='https://fr.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+                    +'&generator=geosearch&ggscoord='+encodeURIComponent(lat+'|'+lon)
+                    +'&ggsradius=10000&ggslimit=6'
+                    +'&prop=pageimages%7Cextracts&piprop=thumbnail&pithumbsize=640'
+                    +'&exintro=1&explaintext=1&exsentences=2';
+            const r=await fetch(url);
+            if(!r.ok) return null;
+            const d=await r.json();
+            const pages=(d && d.query && d.query.pages) ? Object.values(d.query.pages) : [];
+            pages.sort((a,b)=>(a.index||99)-(b.index||99));       // le plus proche d'abord
+            return pages.find(pg=>pg.thumbnail && pg.thumbnail.source) || pages[0] || null;
+        }
+        function urlArticleWiki(titre){
+            return 'https://fr.wikipedia.org/wiki/'+encodeURIComponent(String(titre).replace(/ /g,'_'));
+        }
+        async function genererPageIllustree(){
+            const statut=document.getElementById('statut-voiture');
+            if(!historique.length){ statut.innerHTML="<span class='error'>Aucun point à illustrer.</span>"; return; }
+            if(recitHtml.trim() && !confirm("Cela remplacera la page du récit actuelle. Continuer ?")) return;
+            const entrees=[...historique].sort((a,b)=> new Date(a.date) - new Date(b.date));
+            const btn=document.getElementById('btn-illustrer');
+            btn.disabled=true; btn.textContent='🖼️ Génération en cours…';
+
+            const debut=formaterDateLongue(entrees[0].date), fin=formaterDateLongue(entrees[entrees.length-1].date);
+            let corps='';
+            for(let i=0;i<entrees.length;i++){
+                const e=entrees[i];
+                statut.textContent='🖼️ Recherche Wikipédia… '+(i+1)+' / '+entrees.length;
+                let info=null;
+                try { info=await chercherWikiProche(e.lat, e.lon); } catch(err){ info=null; }
+                const lieu = (e.adresse && e.adresse.trim()) ? e.adresse.trim()
+                           : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
+                const nature = estLieu(e) ? '⭐ Lieu' : '🚗 Étape';
+                corps += '<section class="etape'+(estLieu(e)?' lieu':'')+'">'
+                      +  '<h2><span class="num">'+(i+1)+'</span> '+echapper(lieu)+'</h2>'
+                      +  '<p class="meta">'+nature+' — '+echapper(formaterDateLongue(e.date))+'</p>';
+                if(e.note && e.note.trim()) corps += '<p class="note">« '+echapper(e.note.trim())+' »</p>';
+                if(info && info.thumbnail && info.thumbnail.source){
+                    corps += '<figure><img src="'+echapper(info.thumbnail.source)+'" alt="'+echapper(info.title||'')+'" loading="lazy">'
+                          +  '<figcaption><a href="'+echapper(urlArticleWiki(info.title))+'" target="_blank" rel="noopener">'
+                          +  echapper(info.title||'')+'</a> — Wikipédia</figcaption></figure>';
+                }
+                if(info && info.extract) corps += '<p class="extrait">'+echapper(info.extract)+'</p>';
+                else if(!info) corps += '<p class="extrait vide">Aucun article Wikipédia à proximité.</p>';
+                corps += '<p class="carte"><a href="https://www.google.com/maps/search/?api=1&query='
+                      +  encodeURIComponent(e.lat+','+e.lon)+'" target="_blank" rel="noopener">Voir sur Google Maps</a></p>'
+                      +  '</section>';
+            }
+            const style='body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:18px;'
+                      +'background:#fff;color:#1d1d1f;line-height:1.6;font-size:15px}'
+                      +'h1{font-size:22px;margin:0 0 4px}.sous{color:#86868b;font-size:13px;margin:0 0 22px}'
+                      +'.etape{border-left:4px solid #007aff;padding:2px 0 2px 14px;margin:0 0 26px}'
+                      +'.etape.lieu{border-left-color:#ff9500}'
+                      +'h2{font-size:17px;margin:0 0 4px;line-height:1.3}'
+                      +'.num{display:inline-block;min-width:24px;height:24px;line-height:24px;text-align:center;'
+                      +'border-radius:12px;background:#007aff;color:#fff;font-size:13px;margin-right:6px}'
+                      +'.etape.lieu .num{background:#ff9500}'
+                      +'.meta{color:#86868b;font-size:13px;margin:0 0 10px}'
+                      +'.note{background:#f5f5f7;border-radius:8px;padding:8px 10px;font-style:italic;margin:0 0 10px}'
+                      +'figure{margin:0 0 10px}figure img{width:100%;height:auto;border-radius:8px;display:block}'
+                      +'figcaption{font-size:12px;color:#86868b;margin-top:4px}'
+                      +'.extrait{margin:0 0 8px}.extrait.vide{color:#b0b0b6;font-style:italic}'
+                      +'.carte{margin:0;font-size:13px}a{color:#007aff}';
+            recitHtml = '<!DOCTYPE html><!--'+MARQUE_ILLUSTREE+'--><html lang="fr"><head><meta charset="utf-8">'
+                      + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                      + '<title>Récit du voyage</title><style>'+style+'</style></head><body>'
+                      + '<h1>Récit du voyage</h1>'
+                      + '<p class="sous">'+entrees.length+' étape(s) — du '+echapper(debut)+' au '+echapper(fin)+'</p>'
+                      + corps
+                      + '<p class="sous">Illustrations et extraits : Wikipédia (licence CC BY-SA).</p>'
+                      + '</body></html>';
+            try { localStorage.setItem(CLE_RECIT, recitHtml); } catch(err){}
+            majBoutonEffacer();
+            btn.disabled=false; btn.textContent='🖼️ Générer la page illustrée (Wikipédia)';
+            statut.textContent='🖼️ Page illustrée générée.';
+            if(!document.getElementById('panneau-page').classList.contains('ouvert')) basculerPageRecit();
+            else passerEnLecture();
         }
 
         // ================= Texte récapitulatif (prompt pour une IA) =================
@@ -2180,8 +2334,45 @@
                 return false;
             }
         }
-        function basculerRecap(){
-            const btn=document.getElementById('btn-recap');
+        // Requête « récit illustré » + code HTML de la page — refusé si la page n'a pas été générée
+        let minuteurRefus = null;
+        function flashRefus(){
+            const b=document.getElementById('btn-copier-illustre'); if(!b) return;
+            if(minuteurRefus) clearTimeout(minuteurRefus);
+            b.classList.add('refus'); b.textContent='⛔ Page non générée';
+            minuteurRefus=setTimeout(()=>{ b.classList.remove('refus'); b.textContent='🖼️ Copier la requête + la page illustrée'; minuteurRefus=null; }, 3000);
+        }
+        async function copierRequeteIllustree(){
+            if(!recitHtml.trim()){
+                statutRecap("⛔ Refusé : la page du récit est vide.\n→ Utilise d'abord « 🖼️ Générer la page illustrée (Wikipédia) ».", '#ff3b30');
+                flashRefus(); return;
+            }
+            if(!pageEstIllustree()){
+                statutRecap("⛔ Refusé : cette page n'a pas été produite par « 🖼️ Générer la page illustrée (Wikipédia) ».\n→ Cette requête n'a de sens que sur un carnet illustré. Régénère la page, ou utilise « 📋 Copier l'ensemble » pour le texte simple.", '#ff3b30');
+                flashRefus(); return;
+            }
+            const texte = REQUETE_ILLUSTREE + "\n\n" + recitHtml;
+            try{
+                if(navigator.clipboard && window.isSecureContext){
+                    await navigator.clipboard.writeText(texte);
+                    statutRecap("✅ Requête + page illustrée copiées ("+texte.length+" caractères).", '#34c759');
+                    confirmerCopieSurBouton(); return;
+                }
+                throw new Error('presse-papier indisponible');
+            }catch(e){
+                try{
+                    const tmp=document.createElement('textarea');
+                    tmp.value=texte; tmp.style.position='fixed'; tmp.style.opacity='0';
+                    document.body.appendChild(tmp);
+                    tmp.focus(); tmp.setSelectionRange(0, texte.length);
+                    const ok = document.execCommand && document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    if(ok){ statutRecap("✅ Requête + page illustrée copiées.", '#34c759'); confirmerCopieSurBouton(); return; }
+                }catch(_){}
+                statutRecap("⚠️ Copie automatique refusée par le navigateur.\n→ Ouvre « 📄 Récit du voyage » puis utilise le bouton 📋 de sa barre.", '#ff9500');
+            }
+        }
+        function basculerRecap(){            const btn=document.getElementById('btn-recap');
             const panneau=document.getElementById('panneau-recap');
             if(panneau.classList.contains('ouvert')){
                 panneau.classList.remove('ouvert');
