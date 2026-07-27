@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.51.0</title>
+    <title>Ma Géolocalisation — v1.52.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -481,7 +481,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.51.0';
+        const VERSION = '1.52.0';
         const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
@@ -1554,6 +1554,13 @@
         }
 
         // ================= Navigation =================
+        // Fait défiler la page pour amener la carte au centre de l'écran (sauf en plein écran, où elle occupe déjà tout).
+        function recentrerCarteEcran(){
+            const m=document.getElementById('map');
+            if(m && m.style.display!=='none' && !pleinEcran){
+                m.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
+        }
         function allerVoiture(){
             const statut=document.getElementById('statut-voiture');
             const p=dernierParking();
@@ -1561,14 +1568,15 @@
             idNoteVisible=null;
             idSelection=null; selectionnerEntree(p.id);
             statut.textContent="🚗 Direction ta voiture.";
+            recentrerCarteEcran();
         }
         function allerMaPosition(){
             masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
-            if(marqueur!==null){ const p=marqueur.getLatLng(); carte.setView([p.lat,p.lng],17); marqueur.openPopup(); statut.textContent="📍 Recentré sur ta position."; majDistance(); return; }
+            if(marqueur!==null){ const p=marqueur.getLatLng(); carte.setView([p.lat,p.lng],17); marqueur.openPopup(); statut.textContent="📍 Recentré sur ta position."; majDistance(); recentrerCarteEcran(); return; }
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             statut.textContent="Localisation en cours…";
-            navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; }, erreur, OPTIONS_GEO);
+            navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; recentrerCarteEcran(); }, erreur, OPTIONS_GEO);
         }
         // Cadre la carte pour montrer ta position ET la voiture en même temps
         function voirLesDeux(){
@@ -1585,6 +1593,7 @@
             carte.fitBounds(limites,{padding:[50,50],maxZoom:17});
             statut.textContent="👁️ Ta position et ta voiture sont visibles.";
             majDistance();
+            recentrerCarteEcran();
         }
         // ================= Correction manuelle du point (marqueur déplaçable, sécurisée) =================
         function elCorr(){ return document.getElementById('panneau-correction'); }
