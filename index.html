@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.48.0</title>
+    <title>Ma Géolocalisation — v1.49.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -244,6 +244,13 @@
         .parking-url-statut a { color: inherit; text-decoration: underline; font-weight: 700; word-break: break-all; }
         .adresse-voiture { display: none; margin-top: 10px; font-size: 14px; line-height: 1.5; text-align: left;
             background: #f5f5f7; padding: 12px 15px; border-radius: 10px; word-break: break-word; }
+        /* Section « Compléments » : regroupe les outils techniques, repliée par défaut */
+        details.complements { margin-top: 24px; text-align: left; border-top: 1px solid #e0e0e0; padding-top: 16px; }
+        details.complements > summary { font-size: 17px; font-weight: 700; color: #1d1d1f; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+        details.complements > summary::-webkit-details-marker { display: none; }
+        details.complements > summary::before { content: '▸'; color: #86868b; margin-right: 8px; }
+        details.complements[open] > summary::before { content: '▾'; }
+        .complements-corps > details:first-child { border-top: none; margin-top: 10px; padding-top: 0; }
     </style>
 </head>
 <body>
@@ -334,6 +341,10 @@
 
         <div id="mode-stockage" class="mode-stockage"></div>
 
+        <details class="complements">
+            <summary>🧰 Compléments</summary>
+            <div class="complements-corps">
+
         <details class="manuel">
             <summary>✍️ Saisir des coordonnées à la main</summary>
             <label class="champ">Coordonnées (latitude, longitude)
@@ -423,6 +434,9 @@
             </div>
         </details>
 
+            </div>
+        </details>
+
         <div id="version-appli" class="version-appli"></div>
     </div>
 
@@ -467,8 +481,8 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.48.0';
-        const DATE_VERSION = '2026-07-22';
+        const VERSION = '1.49.0';
+        const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
         const REPO_DEFAUT = 'hammerinhank/hammerinhank.github.io';
