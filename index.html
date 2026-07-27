@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.49.0</title>
+    <title>Ma Géolocalisation — v1.50.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -481,7 +481,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.49.0';
+        const VERSION = '1.50.0';
         const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
@@ -550,6 +550,9 @@
         function urlDepot(){ return 'https://github.com/'+encodeURIComponent(ghUser)+'/'+encodeURIComponent(ghRepo); }
         function urlFichier(){ return urlDepot()+'/blob/'+encodeURIComponent(branche)+'/'+encodeURIComponent(FICHIER); }
         function formaterDistance(m){ return m<1000 ? Math.round(m)+" m" : (m/1000).toFixed(2).replace('.',',')+" km"; }
+        // Altitude renvoyée par le GPS : souvent null (intérieur, appareil sans baromètre). On ne l'affiche que si elle est exploitable.
+        function altitudeValide(a){ return a!==null && a!==undefined && isFinite(a); }
+        function formaterAltitude(a){ return altitudeValide(a) ? "~"+Math.round(a)+" m" : null; }
         function formaterDate(iso){ return new Date(iso).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
         function b64FromBytes(b){ let s=''; b.forEach(x=>s+=String.fromCharCode(x)); return btoa(s); }
         function bytesFromB64(b64){ const bin=atob(b64.replace(/\s/g,'')); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return a; }
@@ -1309,8 +1312,10 @@
         function succes(position){
             const b=document.getElementById('bloc-info');
             const lat=position.coords.latitude, lon=position.coords.longitude, precision=position.coords.accuracy;
+            const alt=formaterAltitude(position.coords.altitude);
+            const ligneAlt = alt ? `<br><strong>Altitude :</strong> ${alt}` : `<br><strong>Altitude :</strong> non disponible`;
             b.style.display="block";
-            b.innerHTML=`<strong>Latitude :</strong> ${lat.toFixed(6)}<br><strong>Longitude :</strong> ${lon.toFixed(6)}<br><strong>Précision :</strong> ~${Math.round(precision)} mètres<div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>`;
+            b.innerHTML=`<strong>Latitude :</strong> ${lat.toFixed(6)}<br><strong>Longitude :</strong> ${lon.toFixed(6)}<br><strong>Précision :</strong> ~${Math.round(precision)} mètres${ligneAlt}<div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>`;
             assurerCarte(lat,lon,16); carte.setView([lat,lon],16);
             if(marqueur===null) marqueur=L.marker([lat,lon]).addTo(carte); else marqueur.setLatLng([lat,lon]);
             marqueur.bindPopup('Tu es ici !').openPopup();
@@ -1338,9 +1343,11 @@
         }
         function popupVoiture(e){
             const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
+            const alt=formaterAltitude(e.alt);
+            const suffixe = lieu + (alt ? '<br>Altitude : '+alt : '');
             return estLieu(e)
-                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${lieu}`
-                : `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`;
+                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${suffixe}`
+                : `🚗 Garé le ${formaterDate(e.date)}<br>${suffixe}`;
         }
         function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon,e); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } majAdresseVoiture(); }
         function selectionnerEntree(id){
@@ -1398,8 +1405,9 @@
                     majAffichageHistorique(); majDistance();
                     return;
                 }
+                const alt = altitudeValide(position.coords.altitude) ? position.coords.altitude : null;
                 const adresse=await recupererAdresseCourte(lat,lon);
-                const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString(), note:'', type:(cestUnLieu?'lieu':'parking') };
+                const entree={ id:Date.now(), lat, lon, alt, adresse, date:new Date().toISOString(), note:'', type:(cestUnLieu?'lieu':'parking') };
                 historique.push(entree); idSelection=entree.id;
                 afficherVoiture(lat,lon,entree); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
                 statut.textContent = cestUnLieu ? "⭐ Lieu enregistré !" : "🚗 Stationnement enregistré !";
@@ -1532,8 +1540,10 @@
             const e=entreeCourante();
             if(!e){ bloc.style.display='none'; bloc.innerHTML=''; return; }
             const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(6)+', '+e.lon.toFixed(6));
+            const alt = formaterAltitude(e.alt);
             bloc.style.display='block';
-            bloc.innerHTML='<strong>'+(estLieu(e)?'Adresse du lieu':'Adresse de la voiture')+' :</strong><br>'+lieu;
+            bloc.innerHTML='<strong>'+(estLieu(e)?'Adresse du lieu':'Adresse de la voiture')+' :</strong><br>'+lieu
+                + (alt ? '<br>Altitude : '+alt : '');
         }
         function majDistance(){
             majAdresseVoiture();
