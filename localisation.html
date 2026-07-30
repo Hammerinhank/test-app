@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.48.0</title>
+    <title>Ma Géolocalisation — v1.53.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -244,6 +244,13 @@
         .parking-url-statut a { color: inherit; text-decoration: underline; font-weight: 700; word-break: break-all; }
         .adresse-voiture { display: none; margin-top: 10px; font-size: 14px; line-height: 1.5; text-align: left;
             background: #f5f5f7; padding: 12px 15px; border-radius: 10px; word-break: break-word; }
+        /* Section « Compléments » : regroupe les outils techniques, repliée par défaut */
+        details.complements { margin-top: 24px; text-align: left; border-top: 1px solid #e0e0e0; padding-top: 16px; }
+        details.complements > summary { font-size: 17px; font-weight: 700; color: #1d1d1f; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+        details.complements > summary::-webkit-details-marker { display: none; }
+        details.complements > summary::before { content: '▸'; color: #86868b; margin-right: 8px; }
+        details.complements[open] > summary::before { content: '▾'; }
+        .complements-corps > details:first-child { border-top: none; margin-top: 10px; padding-top: 0; }
     </style>
 </head>
 <body>
@@ -265,6 +272,29 @@
         <button class="btn-voiture" onclick="itineraireVersVoiture()">🧭 M'y conduire (Google Maps)</button>
 
         <button id="btn-parcours" class="btn-gris" onclick="basculerParcours()">🗺️ Afficher tous les stationnements</button>
+
+        <div id="statut-voiture" class="statut"></div>
+        <div id="distance" class="distance"></div>
+        <div id="adresse-voiture" class="adresse-voiture"></div>
+        <div id="etat-suivi" class="etat-suivi off" onclick="basculerSuivi()" role="button" tabindex="0">Suivi de position : ⏸️ OFF</div>
+        <div id="bloc-info" class="info"></div>
+        <div id="map"></div>
+        <div id="barre-carte">
+            <button id="btn-suivi" class="btn-carte-flottant" onclick="basculerSuivi()">📡 Suivi</button>
+            <button id="btn-fermer-carte" class="btn-carte-flottant" onclick="basculerPleinEcran()">✕ Fermer</button>
+        </div>
+
+        <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
+        <div id="panneau-correction" class="correction">
+            <div class="correction-txt" id="correction-txt">Fais glisser le repère 🚗 jusqu'au bon endroit, puis valide.</div>
+            <div class="correction-actions">
+                <button class="mini valider" onclick="validerCorrection()">✅ Valider</button>
+                <button class="mini annuler" onclick="annulerCorrection()">↩︎ Annuler</button>
+            </div>
+        </div>
+
+        <div id="histo-titre" class="histo-titre">🅿️ Historique des stationnements</div>
+        <div id="historique"></div>
 
         <button id="btn-recap" class="btn-gris" onclick="basculerRecap()">📖 Texte pour l'IA (en faire une histoire)</button>
         <div id="panneau-recap" class="recap">
@@ -308,31 +338,11 @@
 
             <div id="page-statut" class="recap-statut"></div>
         </div>
-
-        <button id="btn-corriger" class="btn-gris" onclick="basculerCorrection()">✏️ Corriger la position sur la carte</button>
-        <div id="panneau-correction" class="correction">
-            <div class="correction-txt" id="correction-txt">Fais glisser le repère 🚗 jusqu'au bon endroit, puis valide.</div>
-            <div class="correction-actions">
-                <button class="mini valider" onclick="validerCorrection()">✅ Valider</button>
-                <button class="mini annuler" onclick="annulerCorrection()">↩︎ Annuler</button>
-            </div>
-        </div>
-
-        <div id="statut-voiture" class="statut"></div>
-        <div id="distance" class="distance"></div>
-        <div id="adresse-voiture" class="adresse-voiture"></div>
-        <div id="etat-suivi" class="etat-suivi off" onclick="basculerSuivi()" role="button" tabindex="0">Suivi de position : ⏸️ OFF</div>
-        <div id="bloc-info" class="info"></div>
-        <div id="map"></div>
-        <div id="barre-carte">
-            <button id="btn-suivi" class="btn-carte-flottant" onclick="basculerSuivi()">📡 Suivi</button>
-            <button id="btn-fermer-carte" class="btn-carte-flottant" onclick="basculerPleinEcran()">✕ Fermer</button>
-        </div>
-
-        <div id="histo-titre" class="histo-titre">🅿️ Historique des stationnements</div>
-        <div id="historique"></div>
-
         <div id="mode-stockage" class="mode-stockage"></div>
+
+        <details class="complements">
+            <summary>🧰 Compléments</summary>
+            <div class="complements-corps">
 
         <details class="manuel">
             <summary>✍️ Saisir des coordonnées à la main</summary>
@@ -423,6 +433,9 @@
             </div>
         </details>
 
+            </div>
+        </details>
+
         <div id="version-appli" class="version-appli"></div>
     </div>
 
@@ -467,8 +480,8 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.48.0';
-        const DATE_VERSION = '2026-07-22';
+        const VERSION = '1.53.0';
+        const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
         const REPO_DEFAUT = 'hammerinhank/hammerinhank.github.io';
@@ -536,6 +549,9 @@
         function urlDepot(){ return 'https://github.com/'+encodeURIComponent(ghUser)+'/'+encodeURIComponent(ghRepo); }
         function urlFichier(){ return urlDepot()+'/blob/'+encodeURIComponent(branche)+'/'+encodeURIComponent(FICHIER); }
         function formaterDistance(m){ return m<1000 ? Math.round(m)+" m" : (m/1000).toFixed(2).replace('.',',')+" km"; }
+        // Altitude renvoyée par le GPS : souvent null (intérieur, appareil sans baromètre). On ne l'affiche que si elle est exploitable.
+        function altitudeValide(a){ return a!==null && a!==undefined && isFinite(a); }
+        function formaterAltitude(a){ return altitudeValide(a) ? "~"+Math.round(a)+" m" : null; }
         function formaterDate(iso){ return new Date(iso).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
         function b64FromBytes(b){ let s=''; b.forEach(x=>s+=String.fromCharCode(x)); return btoa(s); }
         function bytesFromB64(b64){ const bin=atob(b64.replace(/\s/g,'')); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return a; }
@@ -1295,8 +1311,10 @@
         function succes(position){
             const b=document.getElementById('bloc-info');
             const lat=position.coords.latitude, lon=position.coords.longitude, precision=position.coords.accuracy;
+            const alt=formaterAltitude(position.coords.altitude);
+            const ligneAlt = alt ? `<br><strong>Altitude :</strong> ${alt}` : `<br><strong>Altitude :</strong> non disponible`;
             b.style.display="block";
-            b.innerHTML=`<strong>Latitude :</strong> ${lat.toFixed(6)}<br><strong>Longitude :</strong> ${lon.toFixed(6)}<br><strong>Précision :</strong> ~${Math.round(precision)} mètres<div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>`;
+            b.innerHTML=`<strong>Latitude :</strong> ${lat.toFixed(6)}<br><strong>Longitude :</strong> ${lon.toFixed(6)}<br><strong>Précision :</strong> ~${Math.round(precision)} mètres${ligneAlt}<div class="adresse" id="bloc-adresse"><em>Recherche de l'adresse…</em></div>`;
             assurerCarte(lat,lon,16); carte.setView([lat,lon],16);
             if(marqueur===null) marqueur=L.marker([lat,lon]).addTo(carte); else marqueur.setLatLng([lat,lon]);
             marqueur.bindPopup('Tu es ici !').openPopup();
@@ -1324,9 +1342,11 @@
         }
         function popupVoiture(e){
             const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
+            const alt=formaterAltitude(e.alt);
+            const suffixe = lieu + (alt ? '<br>Altitude : '+alt : '');
             return estLieu(e)
-                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${lieu}`
-                : `🚗 Garé le ${formaterDate(e.date)}<br>${lieu}`;
+                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${suffixe}`
+                : `🚗 Garé le ${formaterDate(e.date)}<br>${suffixe}`;
         }
         function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon,e); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } majAdresseVoiture(); }
         function selectionnerEntree(id){
@@ -1384,8 +1404,9 @@
                     majAffichageHistorique(); majDistance();
                     return;
                 }
+                const alt = altitudeValide(position.coords.altitude) ? position.coords.altitude : null;
                 const adresse=await recupererAdresseCourte(lat,lon);
-                const entree={ id:Date.now(), lat, lon, adresse, date:new Date().toISOString(), note:'', type:(cestUnLieu?'lieu':'parking') };
+                const entree={ id:Date.now(), lat, lon, alt, adresse, date:new Date().toISOString(), note:'', type:(cestUnLieu?'lieu':'parking') };
                 historique.push(entree); idSelection=entree.id;
                 afficherVoiture(lat,lon,entree); carte.setView([lat,lon],16); marqueurVoiture.bindPopup(popupVoiture(entree));
                 statut.textContent = cestUnLieu ? "⭐ Lieu enregistré !" : "🚗 Stationnement enregistré !";
@@ -1518,8 +1539,10 @@
             const e=entreeCourante();
             if(!e){ bloc.style.display='none'; bloc.innerHTML=''; return; }
             const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(6)+', '+e.lon.toFixed(6));
+            const alt = formaterAltitude(e.alt);
             bloc.style.display='block';
-            bloc.innerHTML='<strong>'+(estLieu(e)?'Adresse du lieu':'Adresse de la voiture')+' :</strong><br>'+lieu;
+            bloc.innerHTML='<strong>'+(estLieu(e)?'Adresse du lieu':'Adresse de la voiture')+' :</strong><br>'+lieu
+                + (alt ? '<br>Altitude : '+alt : '');
         }
         function majDistance(){
             majAdresseVoiture();
@@ -1530,6 +1553,13 @@
         }
 
         // ================= Navigation =================
+        // Fait défiler la page pour amener la carte au centre de l'écran (sauf en plein écran, où elle occupe déjà tout).
+        function recentrerCarteEcran(){
+            const m=document.getElementById('map');
+            if(m && m.style.display!=='none' && !pleinEcran){
+                m.scrollIntoView({ behavior:'smooth', block:'center' });
+            }
+        }
         function allerVoiture(){
             const statut=document.getElementById('statut-voiture');
             const p=dernierParking();
@@ -1537,14 +1567,15 @@
             idNoteVisible=null;
             idSelection=null; selectionnerEntree(p.id);
             statut.textContent="🚗 Direction ta voiture.";
+            recentrerCarteEcran();
         }
         function allerMaPosition(){
             masquerNoteSelective();
             const statut=document.getElementById('statut-voiture');
-            if(marqueur!==null){ const p=marqueur.getLatLng(); carte.setView([p.lat,p.lng],17); marqueur.openPopup(); statut.textContent="📍 Recentré sur ta position."; majDistance(); return; }
+            if(marqueur!==null){ const p=marqueur.getLatLng(); carte.setView([p.lat,p.lng],17); marqueur.openPopup(); statut.textContent="📍 Recentré sur ta position."; majDistance(); recentrerCarteEcran(); return; }
             if(!navigator.geolocation){ statut.innerHTML="<span class='error'>La géolocalisation n'est pas supportée.</span>"; return; }
             statut.textContent="Localisation en cours…";
-            navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; }, erreur, OPTIONS_GEO);
+            navigator.geolocation.getCurrentPosition((position)=>{ succes(position); statut.textContent=""; recentrerCarteEcran(); }, erreur, OPTIONS_GEO);
         }
         // Cadre la carte pour montrer ta position ET la voiture en même temps
         function voirLesDeux(){
@@ -1561,6 +1592,7 @@
             carte.fitBounds(limites,{padding:[50,50],maxZoom:17});
             statut.textContent="👁️ Ta position et ta voiture sont visibles.";
             majDistance();
+            recentrerCarteEcran();
         }
         // ================= Correction manuelle du point (marqueur déplaçable, sécurisée) =================
         function elCorr(){ return document.getElementById('panneau-correction'); }
