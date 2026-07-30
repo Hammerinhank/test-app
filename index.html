@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.55.0</title>
+    <title>Ma Géolocalisation — v1.56.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -352,6 +352,8 @@
         <details class="complements">
             <summary>🧰 Compléments</summary>
             <div class="complements-corps">
+                <button class="btn-voiture" onclick="mettreAJourEtVerifier()">🔄 Vérifier et appliquer la mise à jour</button>
+                <div id="maj-statut" class="parking-url-statut"></div>
 
         <details class="manuel">
             <summary>✍️ Saisir des coordonnées à la main</summary>
@@ -432,8 +434,6 @@
             <button class="btn-voiture" onclick="simulerShortcut()">Simuler avec ma position actuelle</button>
             <button class="btn-gris" onclick="verifierVersionPubliee()">🔎 Comparer avec la version publiée</button>
             <div id="version-comparaison" class="parking-url-statut"></div>
-            <button class="btn-voiture" onclick="mettreAJourEtVerifier()">🔄 Vérifier et appliquer la mise à jour</button>
-            <div id="maj-statut" class="parking-url-statut"></div>
             <div id="sim-statut" class="parking-url-statut"></div>
             <div class="aide">
                 Ce bouton fait tout en une fois : il <strong>publie cette page</strong> dans ton dépôt sous le
@@ -491,7 +491,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.55.0';
+        const VERSION = '1.56.0';
         const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
