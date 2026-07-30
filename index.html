@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.54.0</title>
+    <title>Ma Géolocalisation — v1.55.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -257,6 +257,7 @@
             padding: calc(env(safe-area-inset-top, 0px) + 11px) 14px 11px; cursor: pointer;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3); -webkit-tap-highlight-color: transparent; }
         .maj-dispo.visible { display: block; }
+        .maj-dispo.ok { background: #34c759; }
     </style>
 </head>
 <body>
@@ -431,6 +432,8 @@
             <button class="btn-voiture" onclick="simulerShortcut()">Simuler avec ma position actuelle</button>
             <button class="btn-gris" onclick="verifierVersionPubliee()">🔎 Comparer avec la version publiée</button>
             <div id="version-comparaison" class="parking-url-statut"></div>
+            <button class="btn-voiture" onclick="mettreAJourEtVerifier()">🔄 Vérifier et appliquer la mise à jour</button>
+            <div id="maj-statut" class="parking-url-statut"></div>
             <div id="sim-statut" class="parking-url-statut"></div>
             <div class="aide">
                 Ce bouton fait tout en une fois : il <strong>publie cette page</strong> dans ton dépôt sous le
@@ -488,7 +491,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.54.0';
+        const VERSION = '1.55.0';
         const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
@@ -2284,27 +2287,94 @@
             b.innerHTML=(err.code===err.PERMISSION_DENIED)?"<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>":"<span class='error'>Impossible d'obtenir une position précise.</span>";
         }
 
-        // ================= Détection d'une nouvelle version publiée =================
-        // Safari (et le CDN de GitHub Pages) gardent l'ancien HTML en cache : au lancement, on relit
-        // le fichier en ligne SANS cache et, si sa VERSION diffère de celle chargée, on propose de recharger.
+        // ================= Détection & mise à jour de version =================
+        // Safari (et le CDN de GitHub Pages) gardent l'ancien HTML en cache. On relit le fichier en ligne
+        // SANS cache pour comparer les versions, et on recharge via une URL horodatée pour forcer la mise à jour.
+        const CLE_MAJ_ATTENDUE = 'maj_attendue';
+        let versionPublieeDetectee = null;   // version repérée en ligne, mémorisée au moment du rechargement
         function urlPropre(){ return location.origin + location.pathname; }
-        function rechargerPourMaj(){
-            location.replace(urlPropre() + '?_maj=' + Date.now());   // URL unique ⇒ contourne tous les caches
+        function versionEnNombres(v){ return String(v||'').split('.').map(n=>parseInt(n,10)||0); }
+        function comparerVersions(a, b){     // -1 si a<b, 0 si égal, 1 si a>b
+            const A=versionEnNombres(a), B=versionEnNombres(b), n=Math.max(A.length,B.length);
+            for(let i=0;i<n;i++){ const x=A[i]||0, y=B[i]||0; if(x<y) return -1; if(x>y) return 1; }
+            return 0;
         }
+        // Recharge en cassant tous les caches ; mémorise la version attendue pour vérifier le résultat au redémarrage
+        function rechargerPourMaj(){
+            try { if(versionPublieeDetectee) localStorage.setItem(CLE_MAJ_ATTENDUE, versionPublieeDetectee); } catch(e){}
+            location.replace(urlPropre() + '?_maj=' + Date.now());
+        }
+        // Lit la VERSION du fichier publié en ligne, sans cache
+        async function lireVersionPubliee(){
+            const r = await fetch(urlPropre() + '?_maj=' + Date.now(), { cache:'no-store' });
+            if(!r.ok) throw new Error('lecture impossible (code '+r.status+')');
+            const src = await r.text();
+            const m = src.match(/const\s+VERSION\s*=\s*'([^']+)'/);
+            if(!m) throw new Error('version introuvable dans le fichier publié');
+            return m[1];
+        }
+        // Bannière automatique au démarrage si une version plus récente est en ligne
         async function verifierMajDisponible(){
             try {
-                const r = await fetch(urlPropre() + '?_maj=' + Date.now(), { cache:'no-store' });
-                if(!r.ok) return;
-                const src = await r.text();
-                const m = src.match(/const\s+VERSION\s*=\s*'([^']+)'/);
-                if(!m) return;
-                const distante = m[1];
-                if(distante && distante !== VERSION){
+                const distante = await lireVersionPubliee();
+                if(distante && comparerVersions(VERSION, distante) < 0){
+                    versionPublieeDetectee = distante;
                     const el = document.getElementById('maj-dispo');
+                    el.classList.remove('ok');
                     el.textContent = '🔄 Nouvelle version ' + distante + ' disponible (tu as la ' + VERSION + ') — toucher pour recharger';
+                    el.onclick = rechargerPourMaj;
                     el.classList.add('visible');
                 }
             } catch(e){ /* hors ligne ou ouverture locale (file://) : rien à signaler */ }
+        }
+        // Bouton dédié : compare, met à jour si besoin, puis vérifie le résultat après rechargement
+        async function mettreAJourEtVerifier(){
+            const el = document.getElementById('maj-statut');
+            el.className = 'parking-url-statut info';
+            el.textContent = "🔎 Comparaison avec la version publiée…";
+            let publiee;
+            try { publiee = await lireVersionPubliee(); }
+            catch(e){
+                el.className = 'parking-url-statut err';
+                el.textContent = "❌ Impossible de lire la version publiée : " + e.message +
+                    "\n→ Vérifie ta connexion (ou ouvre l'appli depuis son adresse en ligne, pas un fichier local).";
+                return;
+            }
+            const cmp = comparerVersions(VERSION, publiee);
+            if(cmp === 0){
+                el.className = 'parking-url-statut ok';
+                el.textContent = "✅ Déjà à jour : ta version et la version publiée sont identiques (" + VERSION + ").";
+                return;
+            }
+            if(cmp > 0){
+                el.className = 'parking-url-statut info';
+                el.innerHTML = "ℹ️ Ta version chargée (<strong>" + echapper(VERSION) + "</strong>) est plus récente que la version publiée (<strong>" + echapper(publiee) + "</strong>).\n→ Rien à recharger. Pour publier ta version en ligne, utilise « 🧪 Simuler avec ma position actuelle » ci-dessus.";
+                return;
+            }
+            // cmp < 0 : version en ligne plus récente → rechargement, puis vérification automatique au redémarrage
+            el.className = 'parking-url-statut info';
+            el.textContent = "⬇️ Version publiée plus récente (" + publiee + "). Application de la mise à jour et rechargement…";
+            versionPublieeDetectee = publiee;
+            setTimeout(rechargerPourMaj, 1200);
+        }
+        // Au redémarrage : confirme si le rechargement de mise à jour a réussi (résultat affiché dans la bannière du haut)
+        function verifierResultatMaj(){
+            let attendue = null;
+            try { attendue = localStorage.getItem(CLE_MAJ_ATTENDUE); } catch(e){}
+            if(!attendue) return false;
+            try { localStorage.removeItem(CLE_MAJ_ATTENDUE); } catch(e){}
+            const el = document.getElementById('maj-dispo');
+            if(comparerVersions(VERSION, attendue) === 0){
+                el.classList.add('visible','ok');
+                el.textContent = "✅ Mise à jour réussie — version " + VERSION + " (toucher pour fermer)";
+                el.onclick = ()=>{ el.classList.remove('visible','ok'); el.onclick = null; };
+            } else {
+                el.classList.remove('ok'); el.classList.add('visible');
+                el.textContent = "⚠️ Mise à jour pas encore prise — toujours en " + VERSION + " (attendu " + attendue + "). GitHub Pages publie parfois avec 1–2 min de délai — toucher pour réessayer";
+                versionPublieeDetectee = attendue;
+                el.onclick = rechargerPourMaj;
+            }
+            return true;
         }
 
         // ================= Démarrage =================
@@ -2359,8 +2429,10 @@
             if(new URLSearchParams(location.search).has('_maj')){
                 try { history.replaceState(null, '', location.pathname); } catch(e){}
             }
-            // Vérifie en arrière-plan si une version plus récente est publiée
-            verifierMajDisponible();
+            // Vérifie en priorité le résultat d'une mise à jour qu'on vient de lancer ; sinon signale une version plus récente
+            if(!verifierResultatMaj()){
+                verifierMajDisponible();
+            }
         });
     </script>
 
