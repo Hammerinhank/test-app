@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.53.0</title>
+    <title>Ma Géolocalisation — v1.54.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -251,9 +251,17 @@
         details.complements > summary::before { content: '▸'; color: #86868b; margin-right: 8px; }
         details.complements[open] > summary::before { content: '▾'; }
         .complements-corps > details:first-child { border-top: none; margin-top: 10px; padding-top: 0; }
+        /* Bannière « nouvelle version disponible » : contourne le cache Safari / GitHub Pages */
+        .maj-dispo { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 25000;
+            background: #5856d6; color: #fff; font-size: 14px; font-weight: 700; text-align: center;
+            padding: calc(env(safe-area-inset-top, 0px) + 11px) 14px 11px; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3); -webkit-tap-highlight-color: transparent; }
+        .maj-dispo.visible { display: block; }
     </style>
 </head>
 <body>
+
+    <div id="maj-dispo" class="maj-dispo" onclick="rechargerPourMaj()">🔄 Nouvelle version disponible — toucher pour recharger</div>
 
     <div class="card">
         <h1>Où suis-je ?</h1>
@@ -480,7 +488,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.53.0';
+        const VERSION = '1.54.0';
         const DATE_VERSION = '2026-07-27';
 
         // ================= Configuration par défaut =================
@@ -2276,6 +2284,29 @@
             b.innerHTML=(err.code===err.PERMISSION_DENIED)?"<span class='error'>Accès refusé. Autorise la géolocalisation dans iOS.</span>":"<span class='error'>Impossible d'obtenir une position précise.</span>";
         }
 
+        // ================= Détection d'une nouvelle version publiée =================
+        // Safari (et le CDN de GitHub Pages) gardent l'ancien HTML en cache : au lancement, on relit
+        // le fichier en ligne SANS cache et, si sa VERSION diffère de celle chargée, on propose de recharger.
+        function urlPropre(){ return location.origin + location.pathname; }
+        function rechargerPourMaj(){
+            location.replace(urlPropre() + '?_maj=' + Date.now());   // URL unique ⇒ contourne tous les caches
+        }
+        async function verifierMajDisponible(){
+            try {
+                const r = await fetch(urlPropre() + '?_maj=' + Date.now(), { cache:'no-store' });
+                if(!r.ok) return;
+                const src = await r.text();
+                const m = src.match(/const\s+VERSION\s*=\s*'([^']+)'/);
+                if(!m) return;
+                const distante = m[1];
+                if(distante && distante !== VERSION){
+                    const el = document.getElementById('maj-dispo');
+                    el.textContent = '🔄 Nouvelle version ' + distante + ' disponible (tu as la ' + VERSION + ') — toucher pour recharger';
+                    el.classList.add('visible');
+                }
+            } catch(e){ /* hors ligne ou ouverture locale (file://) : rien à signaler */ }
+        }
+
         // ================= Démarrage =================
         window.addEventListener('load', async ()=>{
             document.getElementById('version-appli').textContent = 'Version ' + VERSION + ' — ' + DATE_VERSION;
@@ -2323,6 +2354,13 @@
             // Traite un éventuel ?parking=lat,lon transmis par le raccourci iOS (après la synchro,
             // pour que l'entrée soit aussi poussée sur GitHub si configuré)
             await traiterParametreParking();
+
+            // Retire le paramètre anti-cache _maj éventuellement présent dans l'URL
+            if(new URLSearchParams(location.search).has('_maj')){
+                try { history.replaceState(null, '', location.pathname); } catch(e){}
+            }
+            // Vérifie en arrière-plan si une version plus récente est publiée
+            verifierMajDisponible();
         });
     </script>
 
