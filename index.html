@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.56.0</title>
+    <title>Ma Géolocalisation — v1.57.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -95,6 +95,13 @@
         .modale-actions .mini { width: 100%; padding: 13px; font-size: 15px; }
         .modale-actions .mini:disabled { background: #e8e8ed; color: #b0b0b6; }
         .modale-statut { margin-top: 10px; font-size: 13px; font-weight: 600; white-space: pre-line; line-height: 1.4; }
+        /* Fenêtre Street View : le cadre Google a besoin d'au moins 200 x 200 px */
+        .modale-boite.street { max-width: 680px; }
+        #street-cadre {
+            width: 100%; height: min(58vh, 460px); min-height: 220px;
+            border: 0; border-radius: 12px; background: #000; display: block; margin-top: 10px;
+        }
+        #street-aide { font-size: 12px; color: #86868b; line-height: 1.4; margin-top: 8px; }
         .etat-suivi.off { background: #f0f0f2; color: #86868b; }
         .etat-suivi.eco { background: #fff4e5; color: #b36b00; }
         .etat-suivi.normal { background: #eaf7ee; color: #248a3d; }
@@ -480,6 +487,18 @@
         </div>
     </div>
 
+    <div id="modale-street" class="modale-fond">
+        <div class="modale-boite street">
+            <div class="modale-titre modale-titre-bleu">🧭 Street View</div>
+            <iframe id="street-cadre" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Vue Street View"></iframe>
+            <div id="street-aide">Fais glisser l'image pour regarder autour de toi. La panoramique affichée est la plus proche du point, en général prise depuis la chaussée.</div>
+            <div class="modale-actions">
+                <button id="street-externe" class="mini voir">🗺️ Ouvrir dans Google Maps</button>
+                <button class="mini annuler" onclick="fermerStreetView()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
         <div id="barre-nav-parcours" class="barre-nav">
             <button id="nav-precedent" class="btn-nav-fleche" onclick="parcoursPrecedent()" title="Stationnement plus ancien">◀</button>
             <span id="nav-indicateur" class="nav-indicateur"></span>
@@ -491,8 +510,8 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.56.0';
-        const DATE_VERSION = '2026-07-27';
+        const VERSION = '1.57.0';
+        const DATE_VERSION = '2026-09-05';
 
         // ================= Configuration par défaut =================
         const REPO_DEFAUT = 'hammerinhank/hammerinhank.github.io';
@@ -1355,9 +1374,10 @@
             const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
             const alt=formaterAltitude(e.alt);
             const suffixe = lieu + (alt ? '<br>Altitude : '+alt : '');
+            const street = `<button class="mini voir popup-gmaps" onclick="ouvrirStreetView(${e.lat},${e.lon})">🧭 Voir en Street View</button>`;
             return estLieu(e)
-                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${suffixe}`
-                : `🚗 Garé le ${formaterDate(e.date)}<br>${suffixe}`;
+                ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${suffixe}${street}`
+                : `🚗 Garé le ${formaterDate(e.date)}<br>${suffixe}${street}`;
         }
         function rafraichirVoiture(){ const e=entreeCourante(); if(e){ afficherVoiture(e.lat,e.lon,e); marqueurVoiture.bindPopup(popupVoiture(e)); if(carte) carte.setView([e.lat,e.lon],16); } majAdresseVoiture(); }
         function selectionnerEntree(id){
@@ -1685,6 +1705,36 @@
                 className:'', iconSize:[24,24], iconAnchor:[12,12], popupAnchor:[0,-12]
             });
         }
+        // ================= Vue Street View à 360° =================
+        // La panoramique est affichée DANS la page, via la Maps Embed API de Google (cadre
+        // iframe) : sur iPhone, les liens www.google.com/maps sont interceptés par l'application
+        // Google Maps, qui ouvre une galerie de photos au lieu de la vue à 360°.
+        // L'API est gratuite et sans limite d'usage, mais réclame une clé Google Cloud.
+        // Cette clé est celle déjà saisie dans l'application Restaurants : les deux pages étant
+        // publiées sur le même domaine, elles partagent le même stockage local. Si elle manque,
+        // on la demande une fois et on l'enregistre.
+        const CLE_GOOGLE_LS = 'restaurants.cleGoogleMaps.v1';
+        function cleGoogleMaps(){
+            try{ return (localStorage.getItem(CLE_GOOGLE_LS) || '').trim(); }catch(e){ return ''; }
+        }
+        function ouvrirStreetView(lat, lon){
+            let cle = cleGoogleMaps();
+            if(!cle){
+                cle = (prompt("Clé Google Maps (Maps Embed API) — la même que dans l'application Restaurants :", "") || '').trim();
+                if(!cle){ ouvrirGoogleMaps(lat, lon); return; }
+                try{ localStorage.setItem(CLE_GOOGLE_LS, cle); }catch(e){}
+            }
+            document.getElementById('street-cadre').src =
+                'https://www.google.com/maps/embed/v1/streetview?key=' + encodeURIComponent(cle) +
+                '&location=' + lat + ',' + lon + '&fov=90&language=fr';
+            document.getElementById('street-externe').onclick = function(){ ouvrirGoogleMaps(lat, lon); };
+            document.getElementById('modale-street').classList.add('ouvert');
+        }
+        function fermerStreetView(){
+            document.getElementById('modale-street').classList.remove('ouvert');
+            // On vide le cadre : sinon la panoramique continue de tourner en arrière-plan.
+            document.getElementById('street-cadre').src = 'about:blank';
+        }
         // Ouvre Google Maps centré sur un point précis (depuis la bulle d'une pastille)
         function ouvrirGoogleMaps(lat, lon){
             const url='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon);
@@ -1703,7 +1753,8 @@
                 const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere, estLieu(e)) })
                     .bindPopup('#'+(i+1)+(estLieu(e)?' ⭐ lieu':' 🚗 parking')+' — '+formaterDate(e.date)+'<br>'+lieu+
-                               '<br><button class="mini voir popup-gmaps" onclick="ouvrirGoogleMaps('+e.lat+','+e.lon+')">🗺️ Ouvrir dans Google Maps</button>')
+                               '<br><button class="mini voir popup-gmaps" onclick="ouvrirStreetView('+e.lat+','+e.lon+')">🧭 Voir en Street View</button>'+
+                               '<button class="mini voir popup-gmaps" onclick="ouvrirGoogleMaps('+e.lat+','+e.lon+')">🗺️ Ouvrir dans Google Maps</button>')
                     .addTo(groupe);
             });
             return groupe;
