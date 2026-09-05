@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.57.0</title>
+    <title>Ma Géolocalisation — v1.60.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -19,6 +19,14 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 100%; max-width: 380px; box-sizing: border-box;
         }
         h1 { font-size: 24px; margin-bottom: 10px; }
+        /* Badge de version affiché à côté du titre : le numéro figurait jusqu'ici seulement en
+           bas de page, en gris très clair — illisible en pratique. */
+        .badge-version {
+            display: inline-block; vertical-align: middle; margin-left: 10px;
+            font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+            color: #007aff; background: #eaf2ff; border: 1px solid #b8d4ff;
+            border-radius: 999px; padding: 3px 10px;
+        }
         p  { font-size: 14px; color: #86868b; margin-bottom: 20px; }
         button {
             padding: 14px 20px; font-size: 16px; font-weight: 600; cursor: pointer;
@@ -272,7 +280,7 @@
     <div id="maj-dispo" class="maj-dispo" onclick="rechargerPourMaj()">🔄 Nouvelle version disponible — toucher pour recharger</div>
 
     <div class="card">
-        <h1>Où suis-je ?</h1>
+        <h1>Où suis-je ? <span id="badge-version" class="badge-version"></span></h1>
         <p>Clique sur le bouton pour afficher la carte en direct.</p>
         <div id="parking-url-statut" class="parking-url-statut"></div>
         <button onclick="trouverPosition()">Ma Position Actuelle</button>
@@ -402,6 +410,23 @@
             </div>
         </details>
 
+        <details class="sync">
+            <summary>🧭 Clé Google Maps (vue Street View)</summary>
+            <label class="champ">Clé Maps Embed API
+                <input id="cle-google" type="password" autocomplete="off" placeholder="AIza…">
+            </label>
+            <button class="btn-gris" onclick="effacerCleGoogle()">Effacer la clé</button>
+            <div id="cle-google-statut" class="sync-statut"></div>
+            <div class="aide">
+                Cette clé sert uniquement à afficher la vue à 360° dans l'application, via la
+                <strong>Maps Embed API</strong> de Google (gratuite, sans limite d'usage, mais qui
+                exige une clé). Elle est enregistrée sur cet appareil au fil de la frappe, et
+                <em>partagée avec l'application Restaurants</em> : la renseigner ici la renseigne
+                aussi là-bas, et inversement. Sans clé, le bouton Street View se rabat sur
+                l'ouverture dans Google Maps.
+            </div>
+        </details>
+
         <details class="manuel">
             <summary>💾 Sauvegardes de trajets</summary>
             <label class="champ">Nom de la sauvegarde
@@ -493,6 +518,7 @@
             <iframe id="street-cadre" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Vue Street View"></iframe>
             <div id="street-aide">Fais glisser l'image pour regarder autour de toi. La panoramique affichée est la plus proche du point, en général prise depuis la chaussée.</div>
             <div class="modale-actions">
+                <button id="street-diag" class="mini voir">🔎 Diagnostic</button>
                 <button id="street-externe" class="mini voir">🗺️ Ouvrir dans Google Maps</button>
                 <button class="mini annuler" onclick="fermerStreetView()">Fermer</button>
             </div>
@@ -510,7 +536,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.57.0';
+        const VERSION = '1.60.0';
         const DATE_VERSION = '2026-09-05';
 
         // ================= Configuration par défaut =================
@@ -1717,6 +1743,34 @@
         function cleGoogleMaps(){
             try{ return (localStorage.getItem(CLE_GOOGLE_LS) || '').trim(); }catch(e){ return ''; }
         }
+        // Champ de réglage de la clé : enregistrement au fil de la frappe, sans bouton à valider.
+        function initCleGoogle(){
+            const champ = document.getElementById('cle-google');
+            const statut = document.getElementById('cle-google-statut');
+            if(!champ) return;
+            champ.value = cleGoogleMaps();
+            const afficherEtat = ()=>{
+                statut.textContent = champ.value.trim()
+                    ? '✅ Clé enregistrée sur cet appareil.'
+                    : '⚠️ Aucune clé : la vue à 360° ne pourra pas s\'afficher dans l\'application.';
+            };
+            afficherEtat();
+            champ.addEventListener('input', ()=>{
+                const v = champ.value.trim();
+                try{
+                    if(v) localStorage.setItem(CLE_GOOGLE_LS, v);
+                    else localStorage.removeItem(CLE_GOOGLE_LS);
+                }catch(e){}
+                afficherEtat();
+            });
+        }
+        function effacerCleGoogle(){
+            if(!confirm('Effacer la clé Google Maps enregistrée sur cet appareil ?')) return;
+            try{ localStorage.removeItem(CLE_GOOGLE_LS); }catch(e){}
+            const champ = document.getElementById('cle-google');
+            if(champ) champ.value = '';
+            document.getElementById('cle-google-statut').textContent = 'Clé effacée.';
+        }
         function ouvrirStreetView(lat, lon){
             let cle = cleGoogleMaps();
             if(!cle){
@@ -1724,10 +1778,16 @@
                 if(!cle){ ouvrirGoogleMaps(lat, lon); return; }
                 try{ localStorage.setItem(CLE_GOOGLE_LS, cle); }catch(e){}
             }
-            document.getElementById('street-cadre').src =
-                'https://www.google.com/maps/embed/v1/streetview?key=' + encodeURIComponent(cle) +
+            const url = 'https://www.google.com/maps/embed/v1/streetview?key=' + encodeURIComponent(cle) +
                 '&location=' + lat + ',' + lon + '&fov=90&language=fr';
+            document.getElementById('street-cadre').src = url;
             document.getElementById('street-externe').onclick = function(){ ouvrirGoogleMaps(lat, lon); };
+            // Diagnostic : ouvre la MÊME adresse dans un onglet. Le contenu d'un cadre appartenant
+            // à un autre domaine est illisible depuis cette page (règle d'origine du navigateur),
+            // donc un refus de Google s'y affiche en noir, sans explication. Dans un onglet, le
+            // message est lisible — et le référent envoyé est bien celui du site, contrairement à
+            // une adresse tapée à la main dans la barre du navigateur.
+            document.getElementById('street-diag').onclick = function(){ window.open(url, '_blank'); };
             document.getElementById('modale-street').classList.add('ouvert');
         }
         function fermerStreetView(){
@@ -2431,6 +2491,12 @@
         // ================= Démarrage =================
         window.addEventListener('load', async ()=>{
             document.getElementById('version-appli').textContent = 'Version ' + VERSION + ' — ' + DATE_VERSION;
+            const badge = document.getElementById('badge-version');
+            if(badge){
+                badge.textContent = 'v' + VERSION;
+                badge.title = 'Version ' + VERSION + ' — ' + DATE_VERSION;
+            }
+            initCleGoogle();
             // Sécurité batterie : coupe le suivi GPS dès que l'app passe en arrière-plan ou est masquée
             document.addEventListener('visibilitychange', ()=>{
                 if(document.hidden) arreterWatch();
