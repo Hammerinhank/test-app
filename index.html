@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.63.0</title>
+    <title>Ma Géolocalisation — v1.64.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -227,9 +227,10 @@
         .popup-gmaps { width: 100%; margin-top: 8px; padding: 9px 10px; font-size: 13px; }
         /* Bouton Street View : largeur ajustée à son texte, et non étirée sur toute la bulle */
         .popup-street { width: auto; display: inline-block; white-space: nowrap; }
-        /* La bulle s'ajuste à son contenu, mais à la largeur NATURELLE de celui-ci (max-content) :
-           avec width:auto elle se rétrécissait jusqu'à couper le texte des boutons ligne par ligne. */
-        .leaflet-popup-content { width: max-content !important; min-width: 0 !important; max-width: min(300px, 70vw); }
+        /* Aucune largeur n'est imposée à la bulle : Leaflet mesure lui-même son contenu et
+           l'ajuste au plus juste (plafond de 300 px). Les deux tentatives précédentes — width:auto
+           puis width:max-content — faussaient cette mesure, d'où une bulle tantôt rétrécie à
+           couper les mots, tantôt bien trop large. */
         .leaflet-popup-content .popup-gmaps { width: 100%; }
         .leaflet-popup-content .popup-street { width: auto; }
         /* Barre de navigation chronologique (plein écran + trajet affiché) */
@@ -543,7 +544,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.63.0';
+        const VERSION = '1.64.0';
         const DATE_VERSION = '2026-09-05';
 
         // ================= Configuration par défaut =================
