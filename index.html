@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.60.0</title>
+    <title>Ma Géolocalisation — v1.61.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -225,6 +225,8 @@
         .pastille-parcours.cliquable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .pastille-parcours.cliquable:active { transform: scale(0.88); }
         .popup-gmaps { width: 100%; margin-top: 8px; padding: 9px 10px; font-size: 13px; }
+        /* Bouton Street View : largeur ajustée à son texte, et non étirée sur toute la bulle */
+        .popup-street { width: auto; display: inline-block; }
         /* Barre de navigation chronologique (plein écran + trajet affiché) */
         .barre-nav {
             display: none; position: fixed; left: 50%; transform: translateX(-50%);
@@ -536,7 +538,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.60.0';
+        const VERSION = '1.61.0';
         const DATE_VERSION = '2026-09-05';
 
         // ================= Configuration par défaut =================
@@ -1400,7 +1402,7 @@
             const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
             const alt=formaterAltitude(e.alt);
             const suffixe = lieu + (alt ? '<br>Altitude : '+alt : '');
-            const street = `<button class="mini voir popup-gmaps" onclick="ouvrirStreetView(${e.lat},${e.lon})">🧭 Voir en Street View</button>`;
+            const street = `<button class="mini voir popup-gmaps popup-street" onclick="ouvrirStreetView(${e.lat},${e.lon})">🧭 Voir en Street View</button>`;
             return estLieu(e)
                 ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${suffixe}${street}`
                 : `🚗 Garé le ${formaterDate(e.date)}<br>${suffixe}${street}`;
@@ -1813,7 +1815,7 @@
                 const lieu = e.adresse ? echapper(e.adresse) : (e.lat.toFixed(5)+', '+e.lon.toFixed(5));
                 L.marker([e.lat, e.lon], { icon: iconePastille(i+1, estDerniere, estLieu(e)) })
                     .bindPopup('#'+(i+1)+(estLieu(e)?' ⭐ lieu':' 🚗 parking')+' — '+formaterDate(e.date)+'<br>'+lieu+
-                               '<br><button class="mini voir popup-gmaps" onclick="ouvrirStreetView('+e.lat+','+e.lon+')">🧭 Voir en Street View</button>'+
+                               '<br><button class="mini voir popup-gmaps popup-street" onclick="ouvrirStreetView('+e.lat+','+e.lon+')">🧭 Voir en Street View</button>'+
                                '<button class="mini voir popup-gmaps" onclick="ouvrirGoogleMaps('+e.lat+','+e.lon+')">🗺️ Ouvrir dans Google Maps</button>')
                     .addTo(groupe);
             });
