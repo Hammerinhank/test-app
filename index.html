@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.64.0</title>
+    <title>Ma Géolocalisation — v1.65.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -544,7 +544,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.64.0';
+        const VERSION = '1.65.0';
         const DATE_VERSION = '2026-09-05';
 
         // ================= Configuration par défaut =================
@@ -1408,7 +1408,12 @@
             const lieu=e.adresse?echapper(e.adresse):(e.lat.toFixed(5)+', '+e.lon.toFixed(5));
             const alt=formaterAltitude(e.alt);
             const suffixe = lieu + (alt ? '<br>Altitude : '+alt : '');
-            const street = `<button class="mini voir popup-gmaps popup-street" onclick="ouvrirStreetView(${e.lat},${e.lon})">🧭 Voir en Street View</button>`;
+            // Le <br> n'est pas décoratif : pour calculer la largeur de la bulle, Leaflet met
+            // temporairement tout le contenu sur une seule ligne. Sans lui, l'adresse et le bouton
+            // étaient mesurés bout à bout, dépassaient le plafond de 300 px et figeaient la bulle
+            // à cette largeur — d'où une large zone blanche à droite une fois le bouton revenu
+            // à la ligne.
+            const street = `<br><button class="mini voir popup-gmaps popup-street" onclick="ouvrirStreetView(${e.lat},${e.lon})">🧭 Voir en Street View</button>`;
             return estLieu(e)
                 ? `⭐ Lieu noté le ${formaterDate(e.date)}<br>${suffixe}${street}`
                 : `🚗 Garé le ${formaterDate(e.date)}<br>${suffixe}${street}`;
