@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.62.0</title>
+    <title>Ma Géolocalisation — v1.63.0</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -226,11 +226,12 @@
         .pastille-parcours.cliquable:active { transform: scale(0.88); }
         .popup-gmaps { width: 100%; margin-top: 8px; padding: 9px 10px; font-size: 13px; }
         /* Bouton Street View : largeur ajustée à son texte, et non étirée sur toute la bulle */
-        .popup-street { width: auto; display: inline-block; }
-        /* La bulle Leaflet se dimensionnait sur une largeur imposée par la bibliothèque : elle
-           s'ajuste désormais à son contenu (la ligne la plus longue), sans excéder 300 px. */
-        .leaflet-popup-content { width: auto !important; min-width: 0 !important; max-width: 300px; }
+        .popup-street { width: auto; display: inline-block; white-space: nowrap; }
+        /* La bulle s'ajuste à son contenu, mais à la largeur NATURELLE de celui-ci (max-content) :
+           avec width:auto elle se rétrécissait jusqu'à couper le texte des boutons ligne par ligne. */
+        .leaflet-popup-content { width: max-content !important; min-width: 0 !important; max-width: min(300px, 70vw); }
         .leaflet-popup-content .popup-gmaps { width: 100%; }
+        .leaflet-popup-content .popup-street { width: auto; }
         /* Barre de navigation chronologique (plein écran + trajet affiché) */
         .barre-nav {
             display: none; position: fixed; left: 50%; transform: translateX(-50%);
@@ -542,7 +543,7 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.62.0';
+        const VERSION = '1.63.0';
         const DATE_VERSION = '2026-09-05';
 
         // ================= Configuration par défaut =================
