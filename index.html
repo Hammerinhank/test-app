@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Géolocalisation — v1.66.0</title>
+    <title>Ma Géolocalisation — v1.66.1</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -544,11 +544,12 @@
     <script>
         // ================= Version de l'application =================
         // ⬇️ À INCRÉMENTER À CHAQUE NOUVELLE GÉNÉRATION DE L'APPLI
-        const VERSION = '1.66.0';
-        const DATE_VERSION = '2026-09-21';
+        const VERSION = '1.66.1';
+        const DATE_VERSION = '2026-09-22';
 
         // Historique des versions, affiché en touchant le badge (le plus récent en tête).
         const HISTORIQUE_VERSIONS = [
+            { v:'1.66.1', d:'2026-09-22', t:"Correction : sans token, un dépôt privé répond « introuvable » comme un fichier absent. L'app croyait alors que parkings.json n'existait pas. Désormais, sans token, cette réponse est signalée comme un dépôt probablement privé, avec l'invitation à ajouter le token — le dépôt par défaut hammerinhank.github.io n'étant pas public." },
             { v:'1.66.0', d:'2026-09-21', t:"L'historique chiffré se lit sur GitHub avec la seule phrase de passe : le token n'est plus nécessaire que pour enregistrer. Sans token, les stationnements de GitHub sont fusionnés sur l'appareil sans rien renvoyer, et l'état indique « GitHub en lecture seule ». Le badge de version ouvre désormais cet historique." },
             { v:'1.65.0 et avant', d:'', t:"Détail non consigné." }
         ];
@@ -744,7 +745,12 @@
         }
         async function getFichierDistant(){
             const res = await fetch(apiContenu()+'?ref='+encodeURIComponent(branche)+'&t='+Date.now(), { headers: enTetes() });
-            if (res.status === 404) return null;
+            if (res.status === 404){
+                // Sans token, GitHub répond 404 aussi bien pour un fichier absent que pour un dépôt privé :
+                // on ne conclut donc pas à l'absence de parkings.json.
+                if (!token) throw Object.assign(new Error("🔒 Rien de lisible sans token dans « "+ghUser+"/"+ghRepo+" » : ce dépôt est probablement privé.\n→ Ajoute ton token GitHub dans « ⚙️ Synchronisation GitHub » pour lire tes stationnements."), { estGitHub:true });
+                return null;
+            }
             if (!res.ok) throw await erreurHttp(res);
             const data = await res.json();
             return { texte: new TextDecoder().decode(bytesFromB64(data.content)), sha: data.sha };
